@@ -69,20 +69,28 @@ function [m,data] = LoadData_v17(varargin)
 %         - added the ability to specify how many PCA components you want
 %         - added new webcam .avi load functionality
 %         - added rotary load code
-
-%           TO DO
+%
+% 5-29-19 - added some error dlgs, ported v17 to the current version.
+% v1.7    - added cropping for BW file
+%         - renamed the output "rcamp" to "jrgeco"
+%
+% TO DO
 %         - add 'spool index' loading for random stim datasets
 %         - add blank frame deletion from zyla data
 %         - add stim averaging functionality
-%         - allow cropping for BW file
+%         
 
 disp('LoadData version 1.7')
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO/MIAO_v2'))
 warning('off','all')
 
 h.m.fulldir = varargin{1};
-%h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
-%h.m.mouse = h.m.mouse{:};
+try
+    h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
+    h.m.mouse = h.m.mouse{:};
+catch
+    errordlg('ERROR: mouse number not determined. Please send in mouse number via the m structure')
+end
 h.m.run = regexp(h.m.fulldir,'(run)[A-Z]*[0-9]?','Match');
 h.m.run = h.m.run{1};
 h.m.stim = str2double(regexp(regexprep(h.m.fulldir,'/',''),'[0-9]+$','Match'));
@@ -103,18 +111,30 @@ end
 % Determine missing fields and substitute defaults
 if ~isfield(h.m,'outputs')
     h.m.outputs = 'odn';
-    disp(sprintf('No outputs given. Defaulting to HbO, HbR, and Neural...'))
+    fprintf('No outputs given. Defaulting to HbO, HbR, and Neural...')
 end
 if ~isfield(h.m,'dsf')
     h.m.dsf = 1;
-    disp(sprintf('No downsample given. defaulting to 1...'))
+    fprintf('No downsample given. defaulting to 1...')
 end
 if ~isfield(h.m,'dpf')
     h.m.dpf = [.5 .6];
-    disp(sprintf(['No dpf''s given. Defaulting to ' mat2str(h.m.dpf) '...']))
+    fprintf(['No dpf''s given. Defaulting to ' mat2str(h.m.dpf) '...'])
 end
+
 if ~isfield(h.m,'loadpct')
     h.m.loadpct = [0 1];
+elseif numel(h.m.loadpct) == 1
+    errordlg('Please input two elements for loadpct. [0 1] loads the whole run. Thanks!')
+    data = []; m = h.m;
+    return
+end
+
+if isfield(h.m,'PCAcomps')
+    if numel(h.m.PCAcomps) > 1
+        errordlg('Please input PCAcomps as a single value (aka the # of comps you want to represent your data with)')
+        return
+    end
 end
 if ~isfield(h.m,'baseline')
     h.m.baseline = 30:100;
@@ -465,13 +485,13 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
         disp('Converting GCaMP...')
         data.gcamp = GcampMcCorrection_MIAO(data.blue,data.chbr,data.chbo,h.m.baseline,h.m.dpf(1),h.m.dpf(2));
     elseif isfield(data,'lime')
-        disp('Converting RCaMP...')
+        disp('Converting jRGECO...')
         h.m.bkg = 90; % PLACEHOLDER
-        data.rcamp = (data.lime-h.m.bkg)./((abs(data.red-h.m.bkg).^h.m.Dr).*(abs(data.green).^h.m.Dg));
+        data.jrgeco = (data.lime-h.m.bkg)./((abs(data.red-h.m.bkg).^h.m.Dr).*(abs(data.green).^h.m.Dg));
         if ~isfield(h.m,'bgGG')
-            h.m.bgGG = mean(data.rcamp(:,:,h.m.baseline),3);
+            h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
         end
-        data.rcamp = data.rcamp./repmat(h.m.bgGG,[1 1 size(data.rcamp,3)])-1;
+        data.jrgeco = data.jrgeco./repmat(h.m.bgGG,[1 1 size(data.jrgeco,3)])-1;
     end
 end
 
