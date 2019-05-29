@@ -73,7 +73,7 @@ function [m,data] = LoadData(varargin)
 
 % 5-29-19 - added some error dlgs, ported v17 to the current version.
 % v1.7    - added cropping for BW file
-%         - renamed the output "rcamp" to "jrgeco"
+%         - renamed the output 'rcamp' to 'jrgeco'
 %         - fixed the textprogressbar bug
 %
 % TO DO
