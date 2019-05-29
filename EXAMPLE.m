@@ -1,6 +1,6 @@
 %% How to use LoadData to load and preprocess WFOM datasets
 % First, let's add the required path that has all the functions we need to use LoadData().
-addpath(genpath('/local_mount/space/juno/1/Software/MIAO/MIAO_v2'))
+addpath(genpath('/local_mount/space/juno/1/Software/MIAO'))
 
 % Let's setup a default m structure by calling makem().
 m = makem;
@@ -11,7 +11,7 @@ m = makem;
 fulldir = findmousefolder('cm62_2','runF','2');
 %% Example 1: Default loading
 % Using the path to the data as the only input loads HbO, HbR, and GCaMP
-% usign standard options. These options will be indicated in the command
+% using standard options. These options will be indicated in the command
 % line.
 [m,data] = LoadData(fulldir,m);
 
@@ -24,4 +24,4 @@ m.flk_corr = 1; m.dpf= [.5 .6]; m.sf = 2; m.outputs = 'bodn';
 
 % For more usage information, use 
 % > help LoadData 
-% to view the help file.
+% to view the help file, or read the README.md file.

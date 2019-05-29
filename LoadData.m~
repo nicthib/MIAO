@@ -44,8 +44,9 @@
 % m: metadata struct
 % data: data struct that includes WFOM and webcam image matrices.
 
-function [m,data] = LoadData_v17(varargin)
-%           UPDATES
+function [m,data] = LoadData(varargin)
+% VERSION HISTORY
+%
 % 5-11-18 - added crop to zyla loading so that outputs are square.
 % v1.0    - added flicker correction.
 
@@ -69,19 +70,20 @@ function [m,data] = LoadData_v17(varargin)
 %         - added the ability to specify how many PCA components you want
 %         - added new webcam .avi load functionality
 %         - added rotary load code
-%
+
 % 5-29-19 - added some error dlgs, ported v17 to the current version.
 % v1.7    - added cropping for BW file
 %         - renamed the output "rcamp" to "jrgeco"
+%         - fixed th
 %
 % TO DO
 %         - add 'spool index' loading for random stim datasets
 %         - add blank frame deletion from zyla data
 %         - add stim averaging functionality
-%         
+%         - FLIR camera support(?)
 
 disp('LoadData version 1.7')
-addpath(genpath('/local_mount/space/juno/1/Software/MIAO/MIAO_v2'))
+addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
 warning('off','all')
 
 h.m.fulldir = varargin{1};
@@ -225,7 +227,11 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
             if h.m.isgui
                 h.status.String = sprintf('\n\n %i %% complete',round(i*100/h.m.nFrames)); drawnow
             else
-                textprogressbar(round(i*100/(h.m.nFrames*(h.m.loadpct(2)-h.m.loadpct(1)))));
+                try
+                    textprogressbar(round(j*100/length(filesToLoad)));
+                catch
+                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
+                end
             end
         end
     end
@@ -304,7 +310,6 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
             data.bkg.([h.m.LEDs{i}]) = tmp*0;
         end
     end
-    
     textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
     for i = 1:h.m.nLEDs  % preallocate
         data.(h.m.LEDs{i}) = (zeros(h.m.height/h.m.dsf,h.m.width/h.m.dsf,ceil(numFramesPerSpool.*length(filesToLoad)/h.m.nLEDs)));
@@ -360,7 +365,11 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
             if h.m.isgui
                 h.status.String = sprintf('\n\n %i %% complete',round(j*100/length(filesToLoad))); drawnow
             else
-                textprogressbar(round(j*100/length(filesToLoad)));
+                try
+                    textprogressbar(round(j*100/length(filesToLoad)));
+                catch
+                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
+                end
             end
         end
     end
@@ -475,7 +484,7 @@ if ~isempty(regexp(h.m.outputs,'[R]'))
     disp('Done loading rotary')
 end
 
-if ~isempty(regexp(h.m.outputs,'[od]'))
+if ~isempty(regexp(h.m.outputs,'[odn]'))
     disp('Converting Hemodynamics...')
     [data.chbo,data.chbr,~] = convert_mariel_MIAO(data.green,data.red,'g','r',h.m.baseline,534);
 end
@@ -495,10 +504,9 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
     end
 end
 
-
 if ~h.m.isgui
     opts = 'rgblodnn';
-    fields = {'red','green','blue','lime','chbo','chbr','gcamp','rcamp'};
+    fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
     for i = 1:length(opts)
         if isempty(regexp(h.m.outputs,opts(i)))
             try

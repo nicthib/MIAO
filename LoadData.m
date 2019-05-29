@@ -74,6 +74,7 @@ function [m,data] = LoadData(varargin)
 % 5-29-19 - added some error dlgs, ported v17 to the current version.
 % v1.7    - added cropping for BW file
 %         - renamed the output "rcamp" to "jrgeco"
+%         - fixed the textprogressbar bug
 %
 % TO DO
 %         - add 'spool index' loading for random stim datasets
@@ -226,7 +227,11 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
             if h.m.isgui
                 h.status.String = sprintf('\n\n %i %% complete',round(i*100/h.m.nFrames)); drawnow
             else
-                textprogressbar(round(i*100/(h.m.nFrames*(h.m.loadpct(2)-h.m.loadpct(1)))));
+                try
+                    textprogressbar(round(j*100/length(filesToLoad)));
+                catch
+                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
+                end
             end
         end
     end
@@ -305,7 +310,6 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
             data.bkg.([h.m.LEDs{i}]) = tmp*0;
         end
     end
-    
     textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
     for i = 1:h.m.nLEDs  % preallocate
         data.(h.m.LEDs{i}) = (zeros(h.m.height/h.m.dsf,h.m.width/h.m.dsf,ceil(numFramesPerSpool.*length(filesToLoad)/h.m.nLEDs)));
@@ -361,7 +365,11 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
             if h.m.isgui
                 h.status.String = sprintf('\n\n %i %% complete',round(j*100/length(filesToLoad))); drawnow
             else
-                textprogressbar(round(j*100/length(filesToLoad)));
+                try
+                    textprogressbar(round(j*100/length(filesToLoad)));
+                catch
+                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
+                end
             end
         end
     end
