@@ -8,10 +8,10 @@ First, run this command to tell MATLAB where the load code is:
 
 `addpath(genpath('/local_mount/space/juno/1/Software/MIAO'))`
 
-To initialize m with the default load options, simply run `m = makem;` This outputs m with all of the neccesary default options to load a dataset. 
+To initialize m with the default load options, simply input `m = makem;` This outputs m with all of the neccesary default options to load a dataset. NOTE: _This tutorial assumes that you are working on a ssh session within the LFOI server cluster._
 
 ### Step 2: Find the folder where your data is located
-LoadData only takes two inputs: path, and m. You can either directly input `path`, or find it using the handy command `findmousefolder`. Simply run the command `path = findmousefolder(mouse, run, stim)` and it should spit out the path to the dataset of interest.
+LoadData only takes two inputs: path, and m. You can either directly input `path`, or find it using the handy command `findmousefolder` if you are working on the LFOI server cluster. Simply run the command `path = findmousefolder(mouse, run, stim)` and it should spit out the path to the dataset of interest.
 
 ### Step 3: Load your data
 now you are ready to load your data! Simply run the command `[m,data] = LoadData(path,m);`. You should see some initialization messages, a loading bar indicating the load progress, and finally a `Done` message indicating completion.
