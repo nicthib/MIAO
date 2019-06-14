@@ -144,7 +144,7 @@ if ~isfield(h.m,'baseline')
 end
 
 h.m.greenfilter = 534; h.m.isgui = 0;
-h = GetMetaData(h); 
+h = GetMetaData(h);
 
 if h.m.gettruestim
     disp('Getting true stim info...')
@@ -182,7 +182,6 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%% IXON LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
     textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
-   
     newdim = [h.m.height/h.m.dsf h.m.width/h.m.dsf];
     for i = 1:h.m.nLEDs
         data.(h.m.LEDs{i}) = zeros(newdim(1), newdim(2), round(h.m.nFrames*(h.m.loadpct(2)-h.m.loadpct(1))/h.m.nLEDs));
@@ -443,7 +442,7 @@ end
 if ~isempty(h.m.smooth)
     for i = h.m.smooth
         disp(['Smoothing ' h.m.LEDs{i}])
-        data.(h.m.LEDs{i}) = smooth3(data.(h.m.LEDs{i}),'box',[1 1 3]);
+        data.(h.m.LEDs{i}) = smooth3(data.(h.m.LEDs{i}),'box',[1 1 2]);
     end
 end
 
