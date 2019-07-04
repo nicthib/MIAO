@@ -1,14 +1,14 @@
 % [m,data] = LoadData(Path,m) loads a specified WFOM dataset.
 %
-% Version 1.7
+% Version 2 - fully compatible with all new runs taken on WFOM-odeaux,
+% legacy code removed
 %
 % Inputs:
 %
 % Path - full path to stim run files (REQUIRED)
 %
-% NEW for v1.6: all options must be passed into the m structure. Use
-% m = makem to create a default m structure, then alter your parameters as
-% neccesary before running LoadData().
+% NEW for v2: This version only works with newer datasets collected on the
+% Zyla, using FLIR cameras and
 %
 % m.outputs - string with these characters: rgblodn12R.
 % Red, Green, Blue, Lime, hbO, hbR, Neural. 1 and 2 are for webcams 1 and 2.
@@ -75,14 +75,18 @@ function [m,data] = LoadData(varargin)
 % v1.7    - added cropping for BW file
 %         - renamed the output 'rcamp' to 'jrgeco'
 %         - fixed the textprogressbar bug
-%
+
+% 7/1/19  - This version only supports datasets from June 2019 on, taken on
+%           WFOM-odeaux and (hopefully soon) WFOM 1.
+% v2.0
+
 % TO DO
 %         - add 'spool index' loading for random stim datasets
 %         - add blank frame deletion from zyla data
 %         - add stim averaging functionality
 %         - FLIR camera support(?)
 
-disp('LoadData version 1.7')
+disp('LoadData version 2.0')
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
 warning('off','all')
 
@@ -91,7 +95,7 @@ try
     h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
     h.m.mouse = h.m.mouse{:};
 catch
-    errordlg('ERROR: mouse number not determined. Please send in mouse number via the m structure')
+    errordlg('ERROR: mouse number not parsed properly. Please send in mouse number via the m structure')
 end
 h.m.run = regexp(h.m.fulldir,'(run)[A-Z]*[0-9]?','Match');
 h.m.run = h.m.run{1};
@@ -146,100 +150,8 @@ end
 h.m.greenfilter = 534; h.m.isgui = 0;
 h = GetMetaData(h);
 
-if h.m.gettruestim
-    disp('Getting true stim info...')
-    STIMpath = strrep(h.m.CCDdir,'CCD','stimCCD');
-    fid = fopen([STIMpath '/' h.m.run 'stim' mat2str(h.m.stim) '.bin'],'r');
-    if fid
-        tmp = fread(fid,[6 inf],'double');
-        h.m.stimt = tmp(1,1:min(find(tmp(1,:)>h.m.movielength))-1);
-        h.m.stimdata = tmp(2,1:numel(h.m.stimt));
-        h.m.DAQfs = round(numel(h.m.stimdata)/h.m.movielength);
-        [h.m.stimon, h.m.stimoff] = findstims(h.m.stimdata,h.m.stimt,h.m.DAQfs);
-        fclose(fid);
-    else
-        disp('No stim file found.')
-    end
-end
 
-% Obtaining load spools for random stim
-if h.m.loadrandstim == 1
-    h.m.tps_perspool = h.m.numFramesPerSpool/h.m.nLEDs;
-    for i = 1:numel(h.m.stiminfo.stim-1)/2
-        stimon(i) = sum(h.m.stiminfo.stim(1:i*2-1));
-        stimoff(i) = sum(h.m.stiminfo.stim(1:i*2));
-    end
-    h.m.loadpct = [stimon(h.m.stimnum)-10 stimoff(h.m.stimnum)+30]/h.m.movielength;
-    disp(['Loading rand stim number ' mat2str(h.m.stimnum) ', a ' mat2str(stimoff(h.m.stimnum)-stimon(h.m.stimnum)) ' second stim'])
-end
-    
-if h.m.noload
-    data = 'No data loaded'; m = h.m;
-    disp('Done')
-    return
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%% IXON LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
-    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
-    newdim = [h.m.height/h.m.dsf h.m.width/h.m.dsf];
-    for i = 1:h.m.nLEDs
-        data.(h.m.LEDs{i}) = zeros(newdim(1), newdim(2), round(h.m.nFrames*(h.m.loadpct(2)-h.m.loadpct(1))/h.m.nLEDs));
-    end
-    
-    % Get stim folder names
-    tmp = dir(fullfile(h.m.CCDdir, h.m.run));
-    tmp(~[tmp.isdir]) = []; tmp(cellfun('prodofsize', {tmp.name}) < 3) = [];
-    stimfolders = {tmp.name}; clear tmp; blankflag = 0;
-    tmp = dir(fullfile(h.m.CCDdir, h.m.run,stimfolders{1}));
-    tmp(cellfun('isempty', regexpi({tmp.name}, '\.dat$'))) = []; datfiles = {tmp.name};
-    for i = 1:length(datfiles)
-        fid = fopen(fullfile(h.m.CCDdir, h.m.run,stimfolders{1},datfiles{i}),'r','l');
-        tmp = fread(fid,[h.m.height h.m.width],'uint16','l');
-        data.blanks(:,:,i) = mean(mean(reshape(tmp,[h.m.dsf,newdim(1),h.m.dsf,newdim(2)]),3),1);
-        fclose(fid);
-    end
-    databg = squeeze(nanmean(data.blanks,3));
-    if h.m.bkgsub == 0
-        databg = databg*0;
-    end
-    if h.m.loadpct(1) == 0;
-        h.m.loadpct(1) = 1/h.m.nFrames;
-    end
-    h.m.framestoload = round(h.m.nFrames*h.m.loadpct(1):3:round(h.m.nFrames*h.m.loadpct(2)))-1;
-    h.m.framestoload(end) = [];
-    
-    n = 0;
-    for i = h.m.framestoload
-        n = n + 1;
-        for j = 1:h.m.nLEDs
-            fid = fopen(fullfile(h.m.fulldir,  [h.m.run repmat('0',[1,10-size(num2str(i+j-1),2)]) num2str(i+j-1) '.dat']),'r','l');
-            tmp = fread(fid,[h.m.height h.m.width],'uint16','l');
-            if h.m.dsf == 1
-                data.(h.m.LEDs{j})(:,:,n) = tmp-databg;
-            else
-                data.(h.m.LEDs{j})(:,:,n) = squeeze(mean(mean(reshape(tmp,[h.m.dsf,newdim(1),h.m.dsf,newdim(2)]),3),1))-databg;
-            end
-            fclose(fid);
-        end
-        if mod(i,10)
-            if h.m.isgui
-                h.status.String = sprintf('\n\n %i %% complete',round(i*100/h.m.nFrames)); drawnow
-            else
-                try
-                    textprogressbar(round(j*100/length(filesToLoad)));
-                catch
-                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
-                end
-            end
-        end
-    end
-    
-    textprogressbar(sprintf('  Done'))
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%% ZYLA LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
+if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     zylaInfoFilePath = fullfile(h.m.fulldir,'acquisitionmetadata.ini');
     FID = fopen(zylaInfoFilePath, 'r');
     zylaMetaData = fread(FID, '*char')';
@@ -282,7 +194,6 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     end
     h.m.spoolsLoaded = round(numel(namesOut)*h.m.loadpct(1):round(numel(namesOut)*h.m.loadpct(2)));
     filesToLoad = namesOut(h.m.spoolsLoaded);
-    j = 1;
     FID = fopen(fullfile(regexprep(h.m.fulldir,'[_][0-9]$',''),'0000000000spool.dat'));
     rawData = fread(FID, 'uint16=>uint16');
     fclose(FID);
@@ -372,17 +283,14 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
             end
         end
     end
-    
+    ss = size(data.(h.m.LEDs{1}));
     textprogressbar(sprintf('  Done'))
     
 elseif strcmp(h.m.camera,'none')
     data = 'No Data loaded';
     return
 end
-try
-    ss = size(data.(h.m.LEDs{1}));
-catch
-end
+ 
 % Rotate
 if isfield(h.m,'nrot') && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     for i = 1:h.m.nLEDs
@@ -398,7 +306,9 @@ if isfield(h.m,'BW')  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     end
     disp('Cropped data')
 elseif ~isempty(regexp(h.m.outputs,'[rgblodn]'))
-    qans = questdlg('No crop mask found. Would you like to create one?','Yes','No');
+    qans = questdlg('No crop mask (BW) found. Would you like to create one?',...
+        '???',...
+        'Yes','No','Workspace');
     if strcmp(qans,'Yes')
         tmp = figure;
         if isfield(data,'blue')
@@ -411,6 +321,12 @@ elseif ~isempty(regexp(h.m.outputs,'[rgblodn]'))
         close(tmp)
         for i = 1:h.m.nLEDs
             data.(h.m.LEDs{i}) = data.(h.m.LEDs{i}).*repmat(imresize(h.m.BW,ss(1:2)),[1 1 size(data.(h.m.LEDs{i}),3)]);
+        end
+    elseif strcmp(qans,'It''s in my workspace!')
+        try        
+            evalin('base','assignin(''caller'',''BW'',BW)');
+        catch
+            errordlg('No variable named BW! Skipiping crop...')
         end
     end
 end
@@ -456,28 +372,6 @@ if h.m.PCAcomps > 0  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
 end
 clear COEFF SCORE
 
-if ~isempty(regexp(h.m.outputs,'[1]'))
-    WFL = dir(fullfile(h.m.ccddir, '**', ['*' h.m.run '_stim' h.m.stim '_cam1.avi']));
-    disp('Loading Webcam 1...')
-    if isempty(WFL)
-        data.webcam1 = LoadWebcamJPG(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_webcam' h.m.stim]),h.m.dsf);
-    else
-        [data.webcam1,h.m] = LoadWebcamAVI(fullfile(WFL.folder,WFL.name),h.m);
-    end
-    disp('Done loading webcam 1')
-end
-
-if ~isempty(regexp(h.m.outputs,'[2]'))
-    WFL = dir(fullfile(h.m.ccddir, '**', ['*' h.m.run '_stim' h.m.stim '_cam2.avi']));
-    disp('Loading Webcam 2...')
-    if isempty(WFL)
-        data.webcam2 = LoadWebcamJPG(fullfile(strrep(h.m.CCDdir,'CCD','stimCCD'),[h.m.run 'stim' mat2str(h.m.stim) '_webcam']));
-    else
-        [data.webcam2,h.m] = LoadWebcamAVI(fullfile(WFL.folder,WFL.name),h.m);
-    end
-    disp('Done loading Webcam 2')
-end
-
 if ~isempty(regexp(h.m.outputs,'[R]'))
     [data.rotary,h.m] = LoadRotary(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim' mat2str(h.m.stim) '_rotary.txt']),h.m);
     disp('Done loading rotary')
@@ -503,17 +397,5 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
     end
 end
 
-if ~h.m.isgui
-    opts = 'rgblodnn';
-    fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
-    for i = 1:length(opts)
-        if isempty(regexp(h.m.outputs,opts(i)))
-            try
-                data = rmfield(data,fields{i});
-            catch
-            end
-        end
-    end
-end
 m = h.m;
 disp('Done')

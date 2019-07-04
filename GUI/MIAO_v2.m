@@ -28,10 +28,6 @@ addpath(genpath('/local_mount/space/juno/1/Software/MIAO/MIAO_v2'))
 h.initDir = '/local_mount/space/'; h.m.isgui = 1;
 h.output = hObject;
 set(0,'DefaultFigureColor',[.7 .7 .7])
-advancedmode = 1;
-if advancedmode
-   
-end
 guidata(hObject, h);
 
 function varargout = MIAO_v2_OutputFcn(hObject, eventdata, h)
@@ -48,8 +44,6 @@ end
 guidata(hObject,h);
 
 function popupmenu1_Callback(hObject, eventdata, h)
-set(h.stimaverage,'Enable','off')
-set(h.webcam,'Enable','off')
 servroot = {'lfoivault','revault' 'revault'};
 h.m.mainDir = fullfile(h.initDir, servroot{ceil(h.popupmenu1.Value/4)}, h.popupmenu1.String{h.popupmenu1.Value});
 set(h.foldername,'String',h.m.mainDir);
@@ -58,32 +52,16 @@ guidata(hObject,h);
 
 function exps_Callback(hObject, eventdata, h)
 h.figure1.Pointer = 'circle'; h.status.String = ''; drawnow;
-try
-    h.stimaverage.Enable = 'off';
-    h.webcam.Enable = 'off';
-    expNames = get(h.exps,'String');
-    h.m.mouse = expNames{get(h.exps,'Value')};
-    h.m.analysisDir = strrep([h.m.mainDir h.m.mouse],'mdata','mdata_CCD_analysis');
-    %listDir(h.m.analysisDir,h.m.analysisDir,0);
-    h.m.analysisDir = strrep(h.m.analysisDir,'/glioma',''); % to prevent unneccesary folder path
-    h.m.CCDdir = fullfile(h.m.mainDir, h.m.mouse, 'CCD');
-    listDir(h.m.CCDdir,h.runs,1);
-    if ~isdir(h.m.analysisDir)
-        mkdir(h.m.analysisDir)
-        h.save.Enable = 'on';
-        h.status.String = sprintf('\n\nAnalysis directory created'); drawnow
-    end
-    set(h.outfolder,'String',h.m.analysisDir)
-    listDir(h.m.analysisDir,h.m.analysisDir,0);
-    set(h.runs,'Enable','on')
-catch guierror
-    if strcmp(guierror.message,'Permission denied')
-        h.status.String = sprintf('\n\n Permission denied to write to analysis folder. Writing to disk is disabled.'); drawnow
-        h.save.Enable = 'off'; h.save.Value = 0;
-    elseif strcmp(guierror.identifier,'MATLAB:UndefinedFunction')
-        h.status.String = sprintf('\n\n There''s something wrong with this mouse folder. Please fix it! Thanks.'); drawnow
-    end
+expNames = get(h.exps,'String');
+h.m.mouse = expNames{get(h.exps,'Value')};
+h.m.analysisDir = strrep(fullfile(h.m.mainDir, h.m.mouse),'mdata','mdata_analysis');
+if ~exist(h.m.analysisDir)
+    mkdir(h.m.analysisDir)
 end
+h.m.CCDdir = fullfile(h.m.mainDir, h.m.mouse, 'CCD');
+listDir(h.m.CCDdir,h.runs,1);
+set(h.outfolder,'String',h.m.analysisDir)
+listDir(h.m.analysisDir,h.m.analysisDir,0);
 h.figure1.Pointer = 'arrow'; drawnow;
 guidata(hObject,h);
 
@@ -98,12 +76,13 @@ listDir(fullfile(h.m.CCDdir,h.m.run),h.stims,1);
 h.m.extrafilesdir1 = fullfile(strrep(h.m.CCDdir,'CCD','stimCCD'), [h.m.run '*webcam*']);
 h.m.extrafilesdir2 = fullfile(h.m.CCDdir, h.m.run,  [h.m.run '*webcam*']);
 
-if size(dir(h.m.extrafilesdir1),1)>0
+if size(dir(h.m.extrafilesdir1),1) > 0
     listDir(h.m.extrafilesdir1,h.extrafiles1,1);
 else
     set(h.extrafiles1,'String','');
     h.extrafiles1.Value = [];
 end
+
 if size(dir(h.m.extrafilesdir2),1)>0
     listDir(h.m.extrafilesdir2,h.extrafiles2,1);
 else
