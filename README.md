@@ -22,5 +22,5 @@ Here's all this code with an example run to get you started.
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO'))
 m = makem;
 path = findmousefolder('cm62_2','runF','2');
-[m,data] = LoadData(fulldir,m);
+[m,data] = LoadData(path,m);
 ```
