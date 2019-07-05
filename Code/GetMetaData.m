@@ -2,7 +2,7 @@
 % specified.
 
 function h = GetMetaData(h)
-if ~isfield(h.m,'run')
+if ~isfield(h.m,'run') %for GUI
     h.m.run = h.m.runNames{h.runs.Value};
 end
 ccd_dir = dir(fullfile(h.m.CCDdir, h.m.run));
@@ -12,7 +12,6 @@ ccd_dir = {ccd_dir.name};
 h.m.stimlist = ccd_dir(~cellfun(@isempty,regexp(ccd_dir,['(' h.m.run '_stim(_)?)[1-9][0-9]*'],'Match')));
 stimnums = regexp(h.m.stimlist,'\d*$','Match'); stimnums = str2double([stimnums{:}]);
 [~,idx] = sort(stimnums); h.m.stimlist = h.m.stimlist(idx);
-%h.m.run = 'runD';
 fid = fopen(fullfile(h.m.CCDdir, h.m.run, [h.m.run '_info.txt']),'r');
 txt = fread(fid,'uint8=>char');
 txt = lower(strcat(txt))';
@@ -27,10 +26,6 @@ h.m.width = h.m.width/h.m.binsize;
 
 h.m.LEDs = regexp(txt,{'blue[1-5]','lime[1-5]','green[1-5]','red[1-5]','speckle[1-5]','cyan[1-5]'},'Match');
 h.m.LEDs = h.m.LEDs(~cellfun('isempty',h.m.LEDs)); h.m.LEDs =  [h.m.LEDs{:}];
-if isfield(h.m,'changebluetolime')
-    h.m.LEDs{1} = 'lime1';
-end
-
 h.m.nLEDs = numel(h.m.LEDs);
 h.m.LEDs = regexprep(h.m.LEDs,'.$','');
 

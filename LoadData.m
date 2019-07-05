@@ -486,12 +486,14 @@ end
 if ~isempty(regexp(h.m.outputs,'[odn]'))
     disp('Converting Hemodynamics...')
     [data.chbo,data.chbr,~] = convert_mariel_MIAO(data.green,data.red,'g','r',h.m.baseline,534);
+    h.m.conv_vars = {'chbo','chbr'};
 end
 
 if ~isempty(regexp(h.m.outputs,'[n]'))
     if isfield(data,'blue')
         disp('Converting GCaMP...')
         data.gcamp = GcampMcCorrection_MIAO(data.blue,data.chbr,data.chbo,h.m.baseline,h.m.dpf(1),h.m.dpf(2));
+        h.m.conv_vars = [h.m.conv_vars 'gcamp'];
     elseif isfield(data,'lime')
         disp('Converting jRGECO...')
         h.m.bkg = 90; % PLACEHOLDER
@@ -500,6 +502,7 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
             h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
         end
         data.jrgeco = data.jrgeco./repmat(h.m.bgGG,[1 1 size(data.jrgeco,3)])-1;
+        h.m.conv_vars = [h.m.conv_vars 'jrgeco'];
     end
 end
 

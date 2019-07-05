@@ -1,3 +1,4 @@
+
 % [m,data] = LoadData(Path,m) loads a specified WFOM dataset.
 %
 % Version 2 - fully compatible with all new runs taken on WFOM-odeaux,
@@ -91,12 +92,8 @@ addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
 warning('off','all')
 
 h.m.fulldir = varargin{1};
-try
-    h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
-    h.m.mouse = h.m.mouse{:};
-catch
-    errordlg('ERROR: mouse number not parsed properly. Please send in mouse number via the m structure')
-end
+h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
+h.m.mouse = h.m.mouse{:};
 h.m.run = regexp(h.m.fulldir,'(run)[A-Z]*[0-9]?','Match');
 h.m.run = h.m.run{1};
 h.m.stim = str2double(regexp(regexprep(h.m.fulldir,'/',''),'[0-9]+$','Match'));
@@ -147,9 +144,8 @@ if ~isfield(h.m,'baseline')
     disp('No baseline given. Defaulting to 30:100...')
 end
 
-h.m.greenfilter = 534; h.m.isgui = 0;
+h.m.isgui = 0;
 h = GetMetaData(h);
-
 
 if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     zylaInfoFilePath = fullfile(h.m.fulldir,'acquisitionmetadata.ini');
