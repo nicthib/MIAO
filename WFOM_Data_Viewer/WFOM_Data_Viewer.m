@@ -28,6 +28,7 @@ addpath(genpath('C:\MIAO'));
 h.initDir = 'S:\'; h.m.isgui = 1;
 h.output = hObject;
 set(0,'DefaultFigureColormap',jet)
+
 guidata(hObject, h);
 
 function varargout = WFOM_Data_Viewer_OutputFcn(hObject, eventdata, h)
@@ -35,6 +36,9 @@ varargout{1} = h.output;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% CALLBACKS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function init_Callback(hObject, eventdata, h)
+h.chooseROI.Enable = 'off';
+h.plotTCs.Enable = 'off';
+h.loadmovie.Enable = 'off';
 h.m = makem;
 h.m.run = h.run.String;
 h.m.stimnum = 1;
@@ -100,6 +104,7 @@ if strcmp(yesno,'Yes')
     [h.m,h.data] = LoadData(h.m.fulldir,h.m);
     disp('~~~~~~~~~~~~~~~ DONE LOADING ~~~~~~~~~~~~~~~~~~~')
     h.figure1.Pointer = 'arrow'; drawnow;
+    h.chooseROI.Enable = 'on';
     set(h.xrange,'String','');
     set(h.yrange,'String','');
 else
@@ -117,6 +122,7 @@ h.yroi = sprintf('%d:%d',min([round(yroi(1,1)),round(yroi(1,2))]), max([round(yr
 set(h.xrange,'String',h.xroi);
 set(h.yrange,'String',h.yroi);
 close(roifig)
+h.plotTCs.Enable = 'on';
 guidata(hObject, h);
 
 function plotTCs_Callback(hObject, eventdata, h)
@@ -268,6 +274,25 @@ clc
 set(h.output, 'HandleVisibility', 'on');
 guidata(hObject, h);
 
+
+function mouseid_Callback(hObject, eventdata, h)
+clc
+try
+    init_Callback(hObject, eventdata, h)
+    h.loadgo.Enable = 'on';
+catch
+    h.loadgo.Enable = 'off';
+end
+
+function run_Callback(hObject, eventdata, h)
+clc
+try
+    init_Callback(hObject, eventdata, h)
+    h.loadgo.Enable = 'on';
+catch
+    h.loadgo.Enable = 'off';
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%% CREATE FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function tpre_CreateFcn(hObject, eventdata, h)
 function tstim_CreateFcn(hObject, eventdata, h)
@@ -295,8 +320,6 @@ function moviegcamp_Callback(hObject, eventdata, h)
 function moviehbt_Callback(hObject, eventdata, h)
 function moviehbo_Callback(hObject, eventdata, h)
 function moviehbr_Callback(hObject, eventdata, h)
-function mouseid_Callback(hObject, eventdata, handles)
-function run_Callback(hObject, eventdata, handles)
 function tpre_Callback(hObject, eventdata, handles)
 function tstim_Callback(hObject, eventdata, handles)
 function tpost_Callback(hObject, eventdata, handles)
