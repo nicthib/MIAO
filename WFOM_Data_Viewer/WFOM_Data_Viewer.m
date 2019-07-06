@@ -324,6 +324,3 @@ function loadraw_ButtonDownFcn(hObject, eventdata, h)
 function loadraw_KeyPressFcn(hObject, eventdata, h)
 function run_CreateFcn(hObject, eventdata, handles)
 function mouseid_CreateFcn(hObject, eventdata, handles)
-
-
-
