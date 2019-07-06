@@ -62,22 +62,6 @@ catch
     disp('Could not get start and end times for this run.')
 end
 
-% Try getting unix start time
-try
-    load(fullfile(regexprep(h.m.CCDdir,'CCD','stimCCD'),[h.m.run '_info.mat']),'info')
-    h.m.ZylaStartUnix = info.runstart(h.m.stim);
-catch
-    disp('No Zyla start time was found');
-end
-
-% Try getting stim info file
-try
-    load(fullfile(strrep(h.m.CCDdir,'CCD','stimCCD'),[h.m.run '_info.mat']));
-    h.m.stiminfo = info;
-catch 
-    disp('no stim info file found')
-end
-
 % Info text for GUI
 if h.m.isgui
     text1 = {'binsize','height','width','framerate','tpre','tstim','tpost','movielength','nstims','LEDs','camera'};

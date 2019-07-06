@@ -1,5 +1,6 @@
 % New WFOM Data Viewer
-% Last updated 08/06/2018 by Teresa Zhao
+% Updated 08/06/2018 by Teresa Zhao
+% Last updated 07/04/2019 by Nic Thibodeaux
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% INITIALIZATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function varargout = WFOM_Data_Viewer(varargin)
@@ -20,23 +21,24 @@ if nargout
 else
     gui_mainfcn(gui_State, varargin{:});
 end
-% End initialization code - DO NOT EDIT
 
 function WFOM_Data_Viewer_OpeningFcn(hObject, eventdata, h, varargin)
-% MUST CHANGE TO WORKING WFOM_DATA_VIEWER FOLDER
-addpath(genpath('C:\WFOM_Data_Viewer'));
+% MUST CHANGE TO WORKING MIAO FOLDER
+addpath(genpath('C:\MIAO'));
 h.initDir = 'S:\'; h.m.isgui = 1;
 h.output = hObject;
 set(0,'DefaultFigureColormap',jet)
+
 guidata(hObject, h);
 
-
-% --- Outputs from this function are returned to the command line.
 function varargout = WFOM_Data_Viewer_OutputFcn(hObject, eventdata, h)
 varargout{1} = h.output;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% CALLBACKS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function init_Callback(hObject, eventdata, h)
+h.chooseROI.Enable = 'off';
+h.plotTCs.Enable = 'off';
+h.loadmovie.Enable = 'off';
 h.m = makem;
 h.m.run = h.run.String;
 h.m.stimnum = 1;
@@ -50,6 +52,7 @@ h.m.fulldir = fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim_1']);
 
 h = GetMetaData(h);
 h.m.dsf = h.m.height/128;
+h.m.nrot = 2; h.m.autocrop = 1;
 
 set(h.tpre,'String',h.m.tpre);
 set(h.tstim,'String',h.m.tstim);
@@ -61,22 +64,15 @@ set(h.moviegcamp,'Value',0,'Enable','on'); set(h.moviehbt,'Value',0,'Enable','on
 set(h.moviehbo,'Value',0,'Enable','on'); set(h.moviehbr,'Value',0,'Enable','on');
 set(h.xrange,'String','');
 set(h.yrange,'String','');   
-
 guidata(hObject, h);
 
 function loadgo_Callback(hObject, eventdata, h)
-if isfield(h,'data') == 1, h=rmfield(h,'data');  end
-if isfield(h,'Mdata') == 1, h=rmfield(h,'Mdata'); end
-
-% reset buttons
 set(h.movieblue,'Value',0,'Enable','on'); 
 set(h.moviered,'Value',0,'Enable','on'); 
 set(h.moviegreen,'Value',0,'Enable','on'); 
 set(h.moviegcamp,'Value',0,'Enable','on'); set(h.moviehbt,'Value',0,'Enable','on');
 set(h.moviehbo,'Value',0,'Enable','on'); set(h.moviehbr,'Value',0,'Enable','on');
-
 h.figure1.Pointer = 'circle'; drawnow;
-h.datatype = {'blue','green','red','gcamp','chbt','chbo','chbr'};
 
 % Read in which runs to load/average
 h.m.stimstoload = str2num(h.stimstoavg.String);
@@ -104,32 +100,30 @@ yesno = questdlg(sprintf('Filepath: %s \nStims to average: %s \nPre-stim = %ds |
     h.m.fulldir,num2str(h.m.stimstoload),h.m.tpre,h.m.tstim,h.m.tpost,h.m.dsf),...
     'Are these the settings you want?',...
     'Yes','No','No');
-
 if strcmp(yesno,'Yes')
     [h.m,h.data] = LoadData(h.m.fulldir,h.m);
     disp('~~~~~~~~~~~~~~~ DONE LOADING ~~~~~~~~~~~~~~~~~~~')
     h.figure1.Pointer = 'arrow'; drawnow;
+    h.chooseROI.Enable = 'on';
     set(h.xrange,'String','');
     set(h.yrange,'String','');
-    
-    clear data Mdata
 else
     h.figure1.Pointer = 'arrow';
 end
 guidata(hObject, h);
 
-
 function chooseROI_Callback(hObject, eventdata, h)
 h.pkfr = round((h.m.tpre*h.m.framerate/h.m.nLEDs)+(h.m.framerate/h.m.nLEDs));
 bl_im = mean(h.data.(h.m.LEDs{1})(:,:,round(((h.m.tpre-3)*h.m.framerate/h.m.nLEDs)):round(((h.m.tpre-1)*h.m.framerate/h.m.nLEDs))),3);
-figure(1); imagesc(h.data.(h.m.LEDs{1})(:,:,h.pkfr)-bl_im); colormap gray; axis image;
+roifig = figure; imagesc(h.data.(h.m.LEDs{1})(:,:,h.pkfr)-bl_im); colormap gray; axis image;
 [xroi,yroi,~] = genchoose(1);
 h.xroi = sprintf('%d:%d',min([round(xroi(1,1)),round(xroi(1,2))]), max([round(xroi(1,1)),round(xroi(1,2))]));
 h.yroi = sprintf('%d:%d',min([round(yroi(1,1)),round(yroi(1,2))]), max([round(yroi(1,1)),round(yroi(1,2))]));
 set(h.xrange,'String',h.xroi);
-set(h.yrange,'String',h.yroi);   
+set(h.yrange,'String',h.yroi);
+close(roifig)
+h.plotTCs.Enable = 'on';
 guidata(hObject, h);
-
 
 function plotTCs_Callback(hObject, eventdata, h)
 h.m.stimstoload = str2num(h.stimstoavg.String);
@@ -170,7 +164,6 @@ for i = 1:numel(h.m.conv_vars)
 end
 guidata(hObject, h);
 
-
 function loadmovie_Callback(hObject, eventdata, h)
 clear moviedata
 % get proper number of subplots based on user inputs
@@ -197,9 +190,9 @@ for i = 1:length(h.datatype)
     else eval(['ynmovie = h.movie' h.datatype{i}(2:end) '.Value;'])
     end
     if isfield(h.Mdata,h.datatype{i}) && ynmovie==1
-            moviedata{ct} = h.datatype{i};
-            movietitles{ct} = titles{i};
-            ct=ct+1;
+        moviedata{ct} = h.datatype{i};
+        movietitles{ct} = titles{i};
+        ct=ct+1;
     end
 end
 
@@ -210,7 +203,6 @@ for k=1:ss(3)
     hcounter = 1;
     figure(201)
     for i=1:length(moviedata)
-                        %----------------------------%
         if strcmp(moviedata{i},'blue')==1 || strcmp(moviedata{i},'green')==1 || strcmp(moviedata{i},'red')==1
             if k==1
                 eval(['h' num2str(hcounter) '=subplot(rnum,cnum,rct); rct=rct+1;']); 
@@ -251,10 +243,8 @@ for k=1:ss(3)
     else
         subplot(rnum,cnum,1); title([tmptitle, ', t = ', num2str(round(k/(h.m.framerate/h.m.nLEDs),2)) ,' s']);
     end
-    
     drawnow
 end
-
 guidata(hObject, h);
 
 function pausebtn_Callback(hObject, eventdata, h)
@@ -264,7 +254,6 @@ if button_state == get(h.pausebtn,'Max')
 elseif button_state == get(h.pausebtn,'Min')
     disp('no')
 end
-
 guidata(hObject, h)
 
 function closeTC_Callback(hObject, eventdata, h)
@@ -284,6 +273,25 @@ close all
 clc
 set(h.output, 'HandleVisibility', 'on');
 guidata(hObject, h);
+
+
+function mouseid_Callback(hObject, eventdata, h)
+clc
+try
+    init_Callback(hObject, eventdata, h)
+    h.loadgo.Enable = 'on';
+catch
+    h.loadgo.Enable = 'off';
+end
+
+function run_Callback(hObject, eventdata, h)
+clc
+try
+    init_Callback(hObject, eventdata, h)
+    h.loadgo.Enable = 'on';
+catch
+    h.loadgo.Enable = 'off';
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% CREATE FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function tpre_CreateFcn(hObject, eventdata, h)
@@ -312,8 +320,6 @@ function moviegcamp_Callback(hObject, eventdata, h)
 function moviehbt_Callback(hObject, eventdata, h)
 function moviehbo_Callback(hObject, eventdata, h)
 function moviehbr_Callback(hObject, eventdata, h)
-function mouseid_Callback(hObject, eventdata, handles)
-function run_Callback(hObject, eventdata, handles)
 function tpre_Callback(hObject, eventdata, handles)
 function tstim_Callback(hObject, eventdata, handles)
 function tpost_Callback(hObject, eventdata, handles)

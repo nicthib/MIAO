@@ -391,6 +391,19 @@ if isfield(h.m,'nrot') && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     disp('Rotated data')
 end
 
+% autocrop
+if h.m.autocrop
+    disp('autocropping...')
+    tmp = reshape(data.(h.m.LEDs{1}),[h.m.height*h.m.width/(h.m.dsf^2), size(data.(h.m.LEDs{1}),3)]);
+    for i = 1:size(tmp,1)
+        [~,croptst(i)] = runstest(tmp(i,:));
+    end
+    croptst(croptst < .00001) = 0;
+    croptst(croptst > .00001) = 1;
+    croptst = ~logical(reshape(croptst,[h.m.height/h.m.dsf h.m.width/h.m.dsf]));
+    h.m.BW = imerode(croptst,ones(4));
+end
+
 % apply mask
 if isfield(h.m,'BW')  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     for i = 1:h.m.nLEDs
