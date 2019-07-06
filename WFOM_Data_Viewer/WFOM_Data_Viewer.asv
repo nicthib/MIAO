@@ -28,10 +28,9 @@ addpath(genpath('C:\MIAO'));
 h.initDir = 'S:\'; h.m.isgui = 1;
 h.output = hObject;
 set(0,'DefaultFigureColormap',jet)
+% get list of mice, try getting most recent mouse folder
 
-% Try getting most recent mouse folder
-h.mouseid.String = getrecentdataset(h.initDir);
-init_Callback(hObject, eventdata, h)
+guidata(hObject, h);
 
 function varargout = WFOM_Data_Viewer_OutputFcn(hObject, eventdata, h)
 varargout{1} = h.output;
@@ -45,6 +44,10 @@ h.m = makem;
 h.m.run = h.run.String;
 h.m.stimnum = 1;
 h.m.isgui = 0;
+if isfield(h,'data')
+    h = rmfield(h,'data');
+    clear h.data;
+end
 h.m.CCDdir = fullfile(findmousefolder(h.mouseid.String),'CCD');
 h.m.fulldir = fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim_1']);
 
@@ -55,16 +58,27 @@ h.m.nrot = 2; h.m.autocrop = 1;
 set(h.tpre,'String',h.m.tpre);
 set(h.tstim,'String',h.m.tstim);
 set(h.tpost,'String',h.m.tpost);
+set(h.movieblue,'Value',0,'Enable','on'); 
+set(h.moviered,'Value',0,'Enable','on'); 
+set(h.moviegreen,'Value',0,'Enable','on'); 
+set(h.moviegcamp,'Value',0,'Enable','on'); set(h.moviehbt,'Value',0,'Enable','on');
+set(h.moviehbo,'Value',0,'Enable','on'); set(h.moviehbr,'Value',0,'Enable','on');
 set(h.xrange,'String','');
-set(h.yrange,'String','');
-h.loadgo.Enable = 'on';
+set(h.yrange,'String','');   
 guidata(hObject, h);
 
 function loadgo_Callback(hObject, eventdata, h)
+set(h.movieblue,'Value',0,'Enable','on'); 
+set(h.moviered,'Value',0,'Enable','on'); 
+set(h.moviegreen,'Value',0,'Enable','on'); 
+set(h.moviegcamp,'Value',0,'Enable','on'); set(h.moviehbt,'Value',0,'Enable','on');
+set(h.moviehbo,'Value',0,'Enable','on'); set(h.moviehbr,'Value',0,'Enable','on');
 h.figure1.Pointer = 'circle'; drawnow;
 
 % Read in which runs to load/average
 h.m.stimstoload = str2num(h.stimstoavg.String);
+if isempty(h.m.stimstoload), h.m.stimstoload = 1:h.m.nstims; end
+
 h.m.outputs = '';
 if h.loadraw.Value
    h.m.outputs = [h.m.outputs 'rgbl'];
@@ -76,6 +90,13 @@ end
 % Read in user input for flicker correction
 if h.corr_flk.Value==1, h.m.corr_flicker = 1:h.m.nLEDs; else h.m.corr_flicker = []; end
 
+% Read in user input for % of run to load
+if ~isempty(h.percenttoload.String)
+    h.m.loadpct = [0 str2num(h.percenttoload.String)/100];
+end
+
+info.m = h.m;
+info.stimnumsaveraged = h.m.stimstoload;
 yesno = questdlg(sprintf('Filepath: %s \nStims to average: %s \nPre-stim = %ds | Stim = %ds | Post-stim = %ds | downsample = %d',...
     h.m.fulldir,num2str(h.m.stimstoload),h.m.tpre,h.m.tstim,h.m.tpost,h.m.dsf),...
     'Are these the settings you want?',...
@@ -85,7 +106,8 @@ if strcmp(yesno,'Yes')
     disp('~~~~~~~~~~~~~~~ DONE LOADING ~~~~~~~~~~~~~~~~~~~')
     h.figure1.Pointer = 'arrow'; drawnow;
     h.chooseROI.Enable = 'on';
-    set(h.xrange,'String',''); set(h.yrange,'String','');
+    set(h.xrange,'String','');
+    set(h.yrange,'String','');
 else
     h.figure1.Pointer = 'arrow';
 end
@@ -272,10 +294,6 @@ catch
     h.loadgo.Enable = 'off';
 end
 
-function dsf_Callback(hObject, eventdata, h)
-h.m.dsf = str2num(h.dsf.String);
-guidata(hObject,h)
-
 %%%%%%%%%%%%%%%%%%%%%%%%%% CREATE FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function tpre_CreateFcn(hObject, eventdata, h)
 function tstim_CreateFcn(hObject, eventdata, h)
@@ -313,5 +331,6 @@ function loadraw_ButtonDownFcn(hObject, eventdata, h)
 function loadraw_KeyPressFcn(hObject, eventdata, h)
 function run_CreateFcn(hObject, eventdata, handles)
 function mouseid_CreateFcn(hObject, eventdata, handles)
-function dsf_CreateFcn(hObject, eventdata, handles)
+
+
 
