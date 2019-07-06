@@ -313,5 +313,8 @@ function loadraw_ButtonDownFcn(hObject, eventdata, h)
 function loadraw_KeyPressFcn(hObject, eventdata, h)
 function run_CreateFcn(hObject, eventdata, handles)
 function mouseid_CreateFcn(hObject, eventdata, handles)
+<<<<<<< HEAD
 function dsf_CreateFcn(hObject, eventdata, handles)
 
+=======
+>>>>>>> c7ec1f3847658da2f7160ed3233b2630431590f8

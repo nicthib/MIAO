@@ -146,33 +146,6 @@ end
 h.m.greenfilter = 534; h.m.isgui = 0;
 h = GetMetaData(h);
 
-if h.m.gettruestim
-    disp('Getting true stim info...')
-    STIMpath = strrep(h.m.CCDdir,'CCD','stimCCD');
-    fid = fopen([STIMpath '/' h.m.run 'stim' mat2str(h.m.stim) '.bin'],'r');
-    if fid
-        tmp = fread(fid,[6 inf],'double');
-        h.m.stimt = tmp(1,1:min(find(tmp(1,:)>h.m.movielength))-1);
-        h.m.stimdata = tmp(2,1:numel(h.m.stimt));
-        h.m.DAQfs = round(numel(h.m.stimdata)/h.m.movielength);
-        [h.m.stimon, h.m.stimoff] = findstims(h.m.stimdata,h.m.stimt,h.m.DAQfs);
-        fclose(fid);
-    else
-        disp('No stim file found.')
-    end
-end
-
-% Obtaining load spools for random stim
-if h.m.loadrandstim == 1
-    h.m.tps_perspool = h.m.numFramesPerSpool/h.m.nLEDs;
-    for i = 1:numel(h.m.stiminfo.stim-1)/2
-        stimon(i) = sum(h.m.stiminfo.stim(1:i*2-1));
-        stimoff(i) = sum(h.m.stiminfo.stim(1:i*2));
-    end
-    h.m.loadpct = [stimon(h.m.stimnum)-10 stimoff(h.m.stimnum)+30]/h.m.movielength;
-    disp(['Loading rand stim number ' mat2str(h.m.stimnum) ', a ' mat2str(stimoff(h.m.stimnum)-stimon(h.m.stimnum)) ' second stim'])
-end
-    
 if h.m.noload
     data = 'No data loaded'; m = h.m;
     disp('Done')
