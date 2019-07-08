@@ -484,9 +484,7 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
         disp('Converting jRGECO...')
         h.m.bkg = 90; % PLACEHOLDER
         data.jrgeco = (data.lime-h.m.bkg)./((abs(data.red-h.m.bkg).^h.m.Dr).*(abs(data.green).^h.m.Dg));
-        if ~isfield(h.m,'bgGG')
-            h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
-        end
+        h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
         data.jrgeco = data.jrgeco./repmat(h.m.bgGG,[1 1 size(data.jrgeco,3)])-1;
         h.m.conv_vars = [h.m.conv_vars 'jrgeco'];
     end

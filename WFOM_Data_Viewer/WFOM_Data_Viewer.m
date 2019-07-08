@@ -109,7 +109,7 @@ h.m.stimstoload = str2num(h.stimstoavg.String);
 xroi = str2num(h.xroi); xroi = [xroi(1), xroi(end)];
 yroi = str2num(h.yroi); yroi = [yroi(1), yroi(end)];
 rpr = 3; rpc = 3; cpr = 3; cpc = 3;
-tm = linspace(0,h.m.movielength,size(h.data.(h.m.LEDs{1}),3));
+tm = linspace(0,h.m.movielength*h.m.loadpct(2),size(h.data.(h.m.LEDs{1}),3));
 rawplots = figure; pos=get(gcf,'Position'); set(gcf,'unit','normalized','Position',[0.1 0.1 .4 .65]);
 
 for i = 1:h.m.nLEDs
@@ -276,6 +276,10 @@ function dsf_Callback(hObject, eventdata, h)
 h.m.dsf = str2num(h.dsf.String);
 guidata(hObject,h)
 
+function percenttoload_Callback(hObject, eventdata, h)
+h.m.loadpct = [0 str2num(h.percenttoload.String)/100];
+guidata(hObject,h)
+
 %%%%%%%%%%%%%%%%%%%%%%%%%% CREATE FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function tpre_CreateFcn(hObject, eventdata, h)
 function tstim_CreateFcn(hObject, eventdata, h)
@@ -293,7 +297,6 @@ function loadraw_Callback(hObject, eventdata, h)
 function loadconverted_Callback(hObject, eventdata, h)
 function corr_flk_Callback(hObject, eventdata, h)
 function stimstoavg_Callback(hObject, eventdata, h)
-function percenttoload_Callback(hObject, eventdata, h)
 function xrange_Callback(hObject, eventdata, h)
 function yrange_Callback(hObject, eventdata, h)
 function movieblue_Callback(hObject, eventdata, h)

@@ -8,6 +8,5 @@ for i = 1:numel(mousedirs_tmp)
     mousedirs{end+1} = mousedirs_tmp{i};
     mousedates{end+1} = mousedates_tmp{i};
 end
-
 mousedates = cellfun(@datenum,mousedates);
-mouseid = mousedirs{find(mousedates==max(mousedates))};
+mouseid = mousedirs{mousedates==max(mousedates)};
