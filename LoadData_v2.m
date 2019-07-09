@@ -1,19 +1,14 @@
 % [m,data] = LoadData(Path,m) loads a specified WFOM dataset.
 %
-% Version 1.7
+% Version 2.0
 %
 % Inputs:
 %
 % Path - full path to stim run files (REQUIRED)
 %
-% NEW for v1.6: all options must be passed into the m structure. Use
-% m = makem to create a default m structure, then alter your parameters as
-% neccesary before running LoadData().
-%
-% m.outputs - string with these characters: rgblodn12R.
-% Red, Green, Blue, Lime, hbO, hbR, Neural. 1 and 2 are for webcams 1 and 2.
-% R is for rotary. Order doesn't matter. 
-% Default is 'odn'.
+% m.outputs - string with these characters: rgblodn.
+% Red, Green, Blue, Lime, hbO, hbR, Neural.
+% Order doesn't matter. Default is 'odn'.
 %
 % m.dsf - downsample factor (Integer). 
 % Default is 1.
@@ -26,9 +21,8 @@
 % you want to use as a baseline for correction. 
 % Default is [30:100].
 %
-% m.loadpct - 0-1. This loads a ratio of the frames from the beginning of
-% the run, where 1 is the whole run or .5 is half of it.
-% Default is 1.
+% m.loadpct - [start end]. This loads a proportion of the frames, where [0
+% 1] loads the whole run. Default is [0 1].
 %
 % m.PCAcomps - 0 if you don't want to perform PCA, and n if you want it
 % reconstructed with components 1:n.
@@ -36,15 +30,13 @@
 % Other optional arguments (placed into m struct): 
 % m.noload = 1          : load the metadata only
 % m.corr_flicker = 1    : perform flicker correction
-% m.gettruestim = 1     : read the stimCCD bin files and get the real stim values
-% m.do_PCA = 1          : perform PCA noise reduction on the data before conversion
 % m.bkgsub (zyla) = 1   : performs background subtraction using first 3
 %                         frames from blank recording
 % Outputs:
 % m: metadata struct
-% data: data struct that includes WFOM and webcam image matrices.
+% data: data struct that includes WFOM image matrices.
 
-function [m,data] = LoadData(varargin)
+function [m,data] = LoadData_v2(varargin)
 % VERSION HISTORY
 %
 % 5-11-18 - added crop to zyla loading so that outputs are square.
@@ -61,7 +53,7 @@ function [m,data] = LoadData(varargin)
 % v1.4      directory
 
 % 8-9-18  - added flicker correction for all channels.
-% v1.5    - added PCA via the 'do_PCA' flag
+% v1.5    - added PCA via the 'do_PCA' flag (REMOVED)
 
 % 10-9-18 - added rotation
 % v1.6    - updated input parsing to move all options to be placed into m
@@ -70,33 +62,33 @@ function [m,data] = LoadData(varargin)
 %         - added the ability to specify how many PCA components you want
 %         - added new webcam .avi load functionality
 %         - added rotary load code
+%         - all options must be passed into the m structure. Use
+%           m = makem to create a default m structure, then alter your 
+%           parameters as neccesary before running LoadData().
 
 % 5-29-19 - added some error dlgs, ported v17 to the current version.
 % v1.7    - added cropping for BW file
 %         - renamed the output 'rcamp' to 'jrgeco'
 %         - fixed the textprogressbar bug
-%
+
+% 7-9-19  - Removed ixon load code
+% v2.0    - Removed default field assignment. makem replaces this
+%         - Cleared out unused functionality (rotary, webcam, etc.). Rotary
+%           will be reimplemented in a simpler way,and webcam will be a
+%           seperate function (BatchConvertFLIR.m?).
+%         - Improved mouse and run detection via strsplit()
+
 % TO DO
 %         - add 'spool index' loading for random stim datasets
 %         - add blank frame deletion from zyla data
-%         - add stim averaging functionality
-%         - FLIR camera support(?)
+%         - add stim averaging functionality for random stim
 
-disp('LoadData version 1.7')
+disp('LoadData version 2.0')
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
 warning('off','all')
 
 h.m.fulldir = varargin{1};
-try
-    h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
-    h.m.mouse = h.m.mouse{:};
-catch
-    errordlg('ERROR: mouse number not determined. Please send in mouse number via the m structure')
-end
-h.m.run = regexp(h.m.fulldir,'(run)[A-Z]*[0-9]?','Match');
-h.m.run = h.m.run{1};
-h.m.stim = str2double(regexp(regexprep(h.m.fulldir,'/',''),'[0-9]+$','Match'));
-h.m.CCDdir = regexprep(varargin{1},[h.m.run '.*'],'');
+[h.m.mouse,h.m.run,h.m.stim,h.m.CCDdir] = WFOM_splitdir(h.m.fulldir);
 
 % This folds in the fieldnames of the imported m struct into
 % the already existing h.m struct. Imported m struct overrides
@@ -110,109 +102,18 @@ else
     h.m = makem;
     disp('No m found. using default m...')
 end
-% Determine missing fields and substitute defaults
-if ~isfield(h.m,'outputs')
-    h.m.outputs = 'odn';
-    fprintf('No outputs given. Defaulting to HbO, HbR, and Neural...')
-end
-if ~isfield(h.m,'dsf')
-    h.m.dsf = 1;
-    fprintf('No downsample given. defaulting to 1...')
-end
-if ~isfield(h.m,'dpf')
-    h.m.dpf = [.5 .6];
-    fprintf(['No dpf''s given. Defaulting to ' mat2str(h.m.dpf) '...'])
-end
 
-if ~isfield(h.m,'loadpct')
-    h.m.loadpct = [0 1];
-elseif numel(h.m.loadpct) == 1
-    errordlg('Please input two elements for loadpct. [0 1] loads the whole run. Thanks!')
+h = ReadInfoFile(h);
+
+if h.m.noload
+    disp('No data loaded'); 
     data = []; m = h.m;
     return
 end
 
-if isfield(h.m,'PCAcomps')
-    if numel(h.m.PCAcomps) > 1
-        errordlg('Please input PCAcomps as a single value (aka the # of comps you want to represent your data with)')
-        return
-    end
-end
-if ~isfield(h.m,'baseline')
-    h.m.baseline = 30:100;
-    disp('No baseline given. Defaulting to 30:100...')
-end
-
-h.m.greenfilter = 534; h.m.isgui = 0;
-h = GetMetaData(h);
-
-if h.m.noload
-    data = 'No data loaded'; m = h.m;
-    disp('Done')
-    return
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%% IXON LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
-    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
-    newdim = [h.m.height/h.m.dsf h.m.width/h.m.dsf];
-    for i = 1:h.m.nLEDs
-        data.(h.m.LEDs{i}) = zeros(newdim(1), newdim(2), round(h.m.nFrames*(h.m.loadpct(2)-h.m.loadpct(1))/h.m.nLEDs));
-    end
-    
-    % Get stim folder names
-    tmp = dir(fullfile(h.m.CCDdir, h.m.run));
-    tmp(~[tmp.isdir]) = []; tmp(cellfun('prodofsize', {tmp.name}) < 3) = [];
-    stimfolders = {tmp.name}; clear tmp; blankflag = 0;
-    tmp = dir(fullfile(h.m.CCDdir, h.m.run,stimfolders{1}));
-    tmp(cellfun('isempty', regexpi({tmp.name}, '\.dat$'))) = []; datfiles = {tmp.name};
-    for i = 1:length(datfiles)
-        fid = fopen(fullfile(h.m.CCDdir, h.m.run,stimfolders{1},datfiles{i}),'r','l');
-        tmp = fread(fid,[h.m.height h.m.width],'uint16','l');
-        data.blanks(:,:,i) = mean(mean(reshape(tmp,[h.m.dsf,newdim(1),h.m.dsf,newdim(2)]),3),1);
-        fclose(fid);
-    end
-    databg = squeeze(nanmean(data.blanks,3));
-    if h.m.bkgsub == 0
-        databg = databg*0;
-    end
-    if h.m.loadpct(1) == 0
-        h.m.loadpct(1) = 1/h.m.nFrames;
-    end
-    h.m.framestoload = round(h.m.nFrames*h.m.loadpct(1):h.m.nLEDs:round(h.m.nFrames*h.m.loadpct(2)))-1;
-    h.m.framestoload(end) = [];
-    
-    n = 0;
-    for i = h.m.framestoload
-        n = n + 1;
-        for j = 1:h.m.nLEDs
-            fid = fopen(fullfile(h.m.fulldir,  [h.m.run repmat('0',[1,10-size(num2str(i+j-1),2)]) num2str(i+j-1) '.dat']),'r','l');
-            tmp = fread(fid,[h.m.height h.m.width],'uint16','l');
-            if h.m.dsf == 1
-                data.(h.m.LEDs{j})(:,:,n) = tmp-databg;
-            else
-                data.(h.m.LEDs{j})(:,:,n) = squeeze(mean(mean(reshape(tmp,[h.m.dsf,newdim(1),h.m.dsf,newdim(2)]),3),1))-databg;
-            end
-            fclose(fid);
-        end
-        if mod(i,10)
-            if h.m.isgui
-                h.status.String = sprintf('\n\n %i %% complete',round(i*100/h.m.nFrames)); drawnow
-            else
-                try
-                    textprogressbar(round(n*100/length(h.m.framestoload)));
-                catch
-                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
-                end
-            end
-        end
-    end
-    
-    textprogressbar(' Done')
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%% ZYLA LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
+if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]','once'))
     zylaInfoFilePath = fullfile(h.m.fulldir,'acquisitionmetadata.ini');
     FID = fopen(zylaInfoFilePath, 'r');
     zylaMetaData = fread(FID, '*char')';
@@ -221,11 +122,7 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     AOIWidth_start = strfind(zylaMetaData, 'AOIWidth = ');
     AOIStride_start = strfind(zylaMetaData, 'AOIStride = ');
     PixelEncoding_start = strfind(zylaMetaData, 'PixelEncoding = ');
-    ImageSizeBytes_start = strfind(zylaMetaData, 'ImageSizeBytes = ');
-    ImageSizeBytes_end = strfind(zylaMetaData, '[multiimage]')-1;
     ImagesPerFile_start = strfind(zylaMetaData, 'ImagesPerFile = ');
-    ImageSize = str2double(zylaMetaData(ImageSizeBytes_start+length('ImageSizeBytes = '):...
-        ImageSizeBytes_end));
     numDepths = str2double(zylaMetaData(AOIHeight_start+length('AOIHeight = '):...
         AOIWidth_start-1));
     strideWidth = str2double(zylaMetaData(AOIStride_start+length('AOIStride = '):...
@@ -233,11 +130,8 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     numLatPix = strideWidth/2;
     numFramesPerSpool = str2double(zylaMetaData(ImagesPerFile_start+ length('ImagesPerFile = ')...
         :end));
-    
     numColumns = numDepths + h.m.offsetfactor;
-    numRows = numLatPix;
-    newdim = floor([numRows/h.m.dsf, numColumns/h.m.dsf]);
-    
+    numRows = numLatPix;    
     for i = 1:length(dir(fullfile(h.m.fulldir,'*.dat')))-1
         temp = i;
         for j = 1:10
@@ -266,7 +160,7 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
         disp([sprintf('reshaping failed. Please check offset factor and adjust to proper value.\n Height = %i, Width = %i, factors = ',numRows,numColumns) mat2str(divisor(numel(rawData)/numRows))])
         return
     end
-    % This switches height and width is nrot is odd
+    % This switches height and width if nrot is odd
     if mod(h.m.nrot,2) == 1
         height = h.m.height;
         h.m.height = h.m.width;
@@ -346,15 +240,23 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     end
     
     textprogressbar(sprintf('  Done'))
-    
-elseif strcmp(h.m.camera,'none')
-    data = 'No Data loaded';
+elseif strcmp(h.m.camera,'ixon')
+    disp('LoadData_v2 is not compatible with ixon files. Please use LoadData. Thanks :)')
+    data = [];
+    m = h.m;
+    return
+else
+    disp('Camera is unknown, no data loaded')
+    data = [];
+    m = h.m;
     return
 end
+
 try
     ss = size(data.(h.m.LEDs{1}));
 catch
 end
+
 % Rotate
 if isfield(h.m,'nrot') && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     for i = 1:h.m.nLEDs
@@ -363,7 +265,7 @@ if isfield(h.m,'nrot') && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     disp('Rotated data')
 end
 
-% autocrop
+% Autocrop
 if h.m.autocrop
     disp('autocropping...')
     tmp = reshape(data.(h.m.LEDs{1}),[h.m.height*h.m.width/(h.m.dsf^2), size(data.(h.m.LEDs{1}),3)]);
@@ -376,7 +278,7 @@ if h.m.autocrop
     h.m.BW = imerode(croptst,ones(4));
 end
 
-% apply mask
+% Apply mask
 if isfield(h.m,'BW')  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     for i = 1:h.m.nLEDs
         data.(h.m.LEDs{i}) = data.(h.m.LEDs{i}).*repmat(imresize(h.m.BW,ss(1:2)),[1 1 size(data.(h.m.LEDs{i}),3)]);
@@ -400,6 +302,7 @@ elseif ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     end
 end
 
+% Flicker correction
 if ~isempty(h.m.corr_flicker)
     for i = h.m.corr_flicker
         disp(['Flicker ' h.m.LEDs{i}])
@@ -413,17 +316,7 @@ if ~isempty(h.m.corr_flicker)
     end
 end
 
-if isfield(h.m,'corr_flicker_exp')
-    for i = h.m.corr_flicker_exp  
-        disp(['Flicker ' h.m.LEDs{i}])
-        tc = squeeze(nanmean(nanmean(data.(h.m.LEDs{i}),2),1));
-        [~,facty]= flkcor_beth_glob(tc',data.(h.m.LEDs{i}),0);
-        facty = reshape(facty,[1 1 numel(facty)]);
-        tc = reshape(tc,[1 1 numel(tc)]);
-        data.(h.m.LEDs{i}) = data.(h.m.LEDs{i}).*repmat(tc,[ss(1) ss(1) 1]);
-    end
-end
-
+% Smooth (in time)
 if ~isempty(h.m.smooth)
     for i = h.m.smooth
         disp(['Smoothing ' h.m.LEDs{i}])
@@ -431,6 +324,7 @@ if ~isempty(h.m.smooth)
     end
 end
 
+% PCA Denoising
 if h.m.PCAcomps > 0  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     keep = 1:h.m.PCAcomps;
     for i = 1:h.m.nLEDs
@@ -441,32 +335,10 @@ if h.m.PCAcomps > 0  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
 end
 clear COEFF SCORE
 
-if ~isempty(regexp(h.m.outputs,'[1]'))
-    WFL = dir(fullfile(h.m.ccddir, '**', ['*' h.m.run '_stim' h.m.stim '_cam1.avi']));
-    disp('Loading Webcam 1...')
-    if isempty(WFL)
-        data.webcam1 = LoadWebcamJPG(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_webcam' h.m.stim]),h.m.dsf);
-    else
-        [data.webcam1,h.m] = LoadWebcamAVI(fullfile(WFL.folder,WFL.name),h.m);
-    end
-    disp('Done loading webcam 1')
-end
-
-if ~isempty(regexp(h.m.outputs,'[2]'))
-    WFL = dir(fullfile(h.m.ccddir, '**', ['*' h.m.run '_stim' h.m.stim '_cam2.avi']));
-    disp('Loading Webcam 2...')
-    if isempty(WFL)
-        data.webcam2 = LoadWebcamJPG(fullfile(strrep(h.m.CCDdir,'CCD','stimCCD'),[h.m.run 'stim' mat2str(h.m.stim) '_webcam']));
-    else
-        [data.webcam2,h.m] = LoadWebcamAVI(fullfile(WFL.folder,WFL.name),h.m);
-    end
-    disp('Done loading Webcam 2')
-end
-
-if ~isempty(regexp(h.m.outputs,'[R]'))
-    [data.rotary,h.m] = LoadRotary(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim' mat2str(h.m.stim) '_rotary.txt']),h.m);
-    disp('Done loading rotary')
-end
+% if ~isempty(regexp(h.m.outputs,'[R]'))
+%     [data.rotary,h.m] = LoadRotary(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim' mat2str(h.m.stim) '_rotary.txt']),h.m);
+%     disp('Done loading rotary')
+% end
 
 if ~isempty(regexp(h.m.outputs,'[odn]'))
     disp('Converting Hemodynamics...')
@@ -481,7 +353,7 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
         h.m.conv_vars = [h.m.conv_vars 'gcamp'];
     elseif isfield(data,'lime')
         disp('Converting jRGECO...')
-        h.m.bkg = 90; % PLACEHOLDER
+        h.m.bkg = 0; % PLACEHOLDER
         data.jrgeco = (data.lime-h.m.bkg)./((abs(data.red-h.m.bkg).^h.m.Dr).*(abs(data.green).^h.m.Dg));
         h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
         data.jrgeco = data.jrgeco./repmat(h.m.bgGG,[1 1 size(data.jrgeco,3)])-1;

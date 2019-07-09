@@ -13,9 +13,8 @@ fid = fopen(fullfile(h.m.CCDdir, h.m.run, [h.m.run '_info.txt']),'r');
 txt = fread(fid,'uint8=>char');
 txt = lower(strcat(txt))';
 nums = regexp(txt,'\d*\.?\d*','Match');
-
 Fields = {'gain','bitdepth','binsize','height','width','framerate','','tpre','tstim','tpost','movielength','nstims'};
-for i = [1:6 8:12]
+for i = [3:6 8:12]
     h.m.(Fields{i}) = str2double(nums{i});
 end
 h.m.height = h.m.height/h.m.binsize;

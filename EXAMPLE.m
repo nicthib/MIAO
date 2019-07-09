@@ -8,12 +8,12 @@ m = makem;
 % Now, we need to determine the path to the data we want to load. We can
 % use the function findmousefolder() to quickly find where the mouse folder
 % is located on the server. For this example, let's use cm62 day 2, run C stim 1.
-fulldir = findmousefolder('cm62_2','runF','2');
+fulldir = findmousefolder('cm62_2','runF','1');
 %% Example 1: Default loading
 % Using the path to the data as the only input loads HbO, HbR, and GCaMP
 % using standard options. These options will be indicated in the command
 % line.
-[m,data] = LoadData(fulldir,m);
+[m,data] = LoadData_v2(fulldir,m);
 
 %% Example 2: Customized loading
 % Here's an example of a more customized use of the command. It uses custom

@@ -1,16 +1,19 @@
 function outpath = findmousefolder(varargin)
 
 outpath = [];
-roots   =   {'S:/'; '';              '/local_mount/space'
+roots   =   {'S:/'; 'D:/'; 'F:/'; '/local_mount/space'; ''
             };         
-servers =   {'enterprise/1/';        'enterprise/2/';
+servers =   {'enterprise/1';        'enterprise/2';
              'lfoivault/lfoivault1'; 'lfoivault/lfoivault2';
              'revault/revault1';     'revault/revault2';
-             'voyager/1';             'dingus/1'; ''
+             'voyager/1';             'dingus/1'; 
+             ''
             };
-exts =      {'_stroke';              '_glioma'; ''
+exts =      {'_stroke';              '_glioma'; 
+             ''
             };
-mtypes =    {'cmdata';               'mdata'  ; ''
+mtypes =    {'cmdata';               'mdata'  ; 
+             ''
             };
 for h = 1:numel(roots)
     for i = 1:numel(servers)

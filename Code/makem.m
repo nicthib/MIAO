@@ -18,3 +18,4 @@ m.offsetfactor = 2;
 m.smooth = [];
 m.autocrop = 0;
 m.greenfilter = 534;
+m.isgui = 0;
