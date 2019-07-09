@@ -1,15 +1,14 @@
-
 % [m,data] = LoadData(Path,m) loads a specified WFOM dataset.
 %
-% Version 2 - fully compatible with all new runs taken on WFOM-odeaux,
-% legacy code removed
+% Version 1.7
 %
 % Inputs:
 %
 % Path - full path to stim run files (REQUIRED)
 %
-% NEW for v2: This version only works with newer datasets collected on the
-% Zyla, using FLIR cameras and
+% NEW for v1.6: all options must be passed into the m structure. Use
+% m = makem to create a default m structure, then alter your parameters as
+% neccesary before running LoadData().
 %
 % m.outputs - string with these characters: rgblodn12R.
 % Red, Green, Blue, Lime, hbO, hbR, Neural. 1 and 2 are for webcams 1 and 2.
@@ -76,24 +75,24 @@ function [m,data] = LoadData(varargin)
 % v1.7    - added cropping for BW file
 %         - renamed the output 'rcamp' to 'jrgeco'
 %         - fixed the textprogressbar bug
-
-% 7/1/19  - This version only supports datasets from June 2019 on, taken on
-%           WFOM-odeaux and (hopefully soon) WFOM 1.
-% v2.0
-
+%
 % TO DO
 %         - add 'spool index' loading for random stim datasets
 %         - add blank frame deletion from zyla data
 %         - add stim averaging functionality
 %         - FLIR camera support(?)
 
-disp('LoadData version 2.0')
+disp('LoadData version 1.7')
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
 warning('off','all')
 
 h.m.fulldir = varargin{1};
-h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
-h.m.mouse = h.m.mouse{:};
+try
+    h.m.mouse = regexp(h.m.fulldir,'[cm]+[0-9]+(_)[0-9]*','Match');
+    h.m.mouse = h.m.mouse{:};
+catch
+    errordlg('ERROR: mouse number not determined. Please send in mouse number via the m structure')
+end
 h.m.run = regexp(h.m.fulldir,'(run)[A-Z]*[0-9]?','Match');
 h.m.run = h.m.run{1};
 h.m.stim = str2double(regexp(regexprep(h.m.fulldir,'/',''),'[0-9]+$','Match'));
@@ -126,70 +125,6 @@ if ~isfield(h.m,'dpf')
 end
 
 if ~isfield(h.m,'loadpct')
-    h.m.loadpct = [0 1];
-elseif numel(h.m.loadpct) == 1
-    errordlg('Please input two elements for loadpct. [0 1] loads the whole run. Thanks!')
-    data = []; m = h.m;
-    return
-end
-
-if isfield(h.m,'PCAcomps')
-    if numel(h.m.PCAcomps) > 1
-        errordlg('Please input PCAcomps as a single value (aka the # of comps you want to represent your data with)')
-        return
-    end
-end
-if ~isfield(h.m,'baseline')
-    h.m.baseline = 30:100;
-    disp('No baseline given. Defaulting to 30:100...')
-end
-
-h.m.isgui = 0;
-h = GetMetaData(h);
-
-if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
-    zylaInfoFilePath = fullfile(h.m.fulldir,'acquisitionmetadata.ini');
-    FID = fopen(zylaInfoFilePath, 'r');
-    zylaMetaData = fread(FID, '*char')';
-    fclose(FID);
-    AOIHeight_start = strfind(zylaMetaData, 'AOIHeight = ');
-    AOIWidth_start = strfind(zylaMetaData, 'AOIWidth = ');
-    AOIStride_start = strfind(zylaMetaData, 'AOIStride = ');
-    PixelEncoding_start = strfind(zylaMetaData, 'PixelEncoding = ');
-    ImageSizeBytes_start = strfind(zylaMetaData, 'ImageSizeBytes = ');
-    ImageSizeBytes_end = strfind(zylaMetaData, '[multiimage]')-1;
-    ImagesPerFile_start = strfind(zylaMetaData, 'ImagesPerFile = ');
-    ImageSize = str2double(zylaMetaData(ImageSizeBytes_start+length('ImageSizeBytes = '):...
-        ImageSizeBytes_end));
-    numDepths = str2double(zylaMetaData(AOIHeight_start+length('AOIHeight = '):...
-        AOIWidth_start-1));
-    strideWidth = str2double(zylaMetaData(AOIStride_start+length('AOIStride = '):...
-        PixelEncoding_start-1));
-    numLatPix = strideWidth/2;
-    numFramesPerSpool = str2double(zylaMetaData(ImagesPerFile_start+ length('ImagesPerFile = ')...
-        :end));
-    
-    numColumns = numDepths + h.m.offsetfactor;
-    numRows = numLatPix;
-    newdim = floor([numRows/h.m.dsf, numColumns/h.m.dsf]);
-    
-    for i = 1:length(dir(fullfile(h.m.fulldir,'*.dat')))-1
-        temp = i;
-        for j = 1:10
-            a(i,j) = mod(temp, 10^j)/(10^(j-1));
-            temp = temp-mod(temp, 10^j);
-        end
-        tempName = mat2str(a(i, :));
-        tempName = tempName(2:end-1);
-        tempName = tempName(find(tempName ~= ' '));
-        tempName = [tempName 'spool.dat'];
-        namesOut{i} = tempName;
-    end
-    if h.m.loadpct(1) == 0
-        h.m.loadpct(1) = 1/numel(namesOut);
-    end
-    h.m.spoolsLoaded = round(numel(namesOut)*h.m.loadpct(1):round(numel(namesOut)*h.m.loadpct(2)));
-    filh.m,'loadpct')
     h.m.loadpct = [0 1];
 elseif numel(h.m.loadpct) == 1
     errordlg('Please input two elements for loadpct. [0 1] loads the whole run. Thanks!')
@@ -241,10 +176,10 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
     if h.m.bkgsub == 0
         databg = databg*0;
     end
-    if h.m.loadpct(1) == 0;
+    if h.m.loadpct(1) == 0
         h.m.loadpct(1) = 1/h.m.nFrames;
     end
-    h.m.framestoload = round(h.m.nFrames*h.m.loadpct(1):3:round(h.m.nFrames*h.m.loadpct(2)))-1;
+    h.m.framestoload = round(h.m.nFrames*h.m.loadpct(1):h.m.nLEDs:round(h.m.nFrames*h.m.loadpct(2)))-1;
     h.m.framestoload(end) = [];
     
     n = 0;
@@ -265,7 +200,7 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
                 h.status.String = sprintf('\n\n %i %% complete',round(i*100/h.m.nFrames)); drawnow
             else
                 try
-                    textprogressbar(round(j*100/length(filesToLoad)));
+                    textprogressbar(round(n*100/length(h.m.framestoload)));
                 catch
                     textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
                 end
@@ -273,7 +208,7 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
         end
     end
     
-    textprogressbar(sprintf('  Done'))
+    textprogressbar(' Done')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% ZYLA LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -320,7 +255,6 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     end
     h.m.spoolsLoaded = round(numel(namesOut)*h.m.loadpct(1):round(numel(namesOut)*h.m.loadpct(2)));
     filesToLoad = namesOut(h.m.spoolsLoaded);
-    j = 1;
     FID = fopen(fullfile(regexprep(h.m.fulldir,'[_][0-9]$',''),'0000000000spool.dat'));
     rawData = fread(FID, 'uint16=>uint16');
     fclose(FID);
@@ -405,7 +339,7 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
                 try
                     textprogressbar(round(j*100/length(filesToLoad)));
                 catch
-                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
+                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\r']))
                 end
             end
         end
@@ -421,7 +355,6 @@ try
     ss = size(data.(h.m.LEDs{1}));
 catch
 end
-
 % Rotate
 if isfield(h.m,'nrot') && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
     for i = 1:h.m.nLEDs
@@ -480,6 +413,17 @@ if ~isempty(h.m.corr_flicker)
     end
 end
 
+if isfield(h.m,'corr_flicker_exp')
+    for i = h.m.corr_flicker_exp  
+        disp(['Flicker ' h.m.LEDs{i}])
+        tc = squeeze(nanmean(nanmean(data.(h.m.LEDs{i}),2),1));
+        [~,facty]= flkcor_beth_glob(tc',data.(h.m.LEDs{i}),0);
+        facty = reshape(facty,[1 1 numel(facty)]);
+        tc = reshape(tc,[1 1 numel(tc)]);
+        data.(h.m.LEDs{i}) = data.(h.m.LEDs{i}).*repmat(tc,[ss(1) ss(1) 1]);
+    end
+end
+
 if ~isempty(h.m.smooth)
     for i = h.m.smooth
         disp(['Smoothing ' h.m.LEDs{i}])
@@ -494,6 +438,34 @@ if h.m.PCAcomps > 0  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
         [COEFF,SCORE,~,~,h.m.EXPLAIN.(h.m.LEDs{i})] = pca(reshape(data.(h.m.LEDs{i}),[ss(1)*ss(2),ss(3)]),'Centered','off');
         data.(h.m.LEDs{i}) = reshape(SCORE(:,keep)*COEFF(:,keep)',ss);
     end
+end
+clear COEFF SCORE
+
+if ~isempty(regexp(h.m.outputs,'[1]'))
+    WFL = dir(fullfile(h.m.ccddir, '**', ['*' h.m.run '_stim' h.m.stim '_cam1.avi']));
+    disp('Loading Webcam 1...')
+    if isempty(WFL)
+        data.webcam1 = LoadWebcamJPG(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_webcam' h.m.stim]),h.m.dsf);
+    else
+        [data.webcam1,h.m] = LoadWebcamAVI(fullfile(WFL.folder,WFL.name),h.m);
+    end
+    disp('Done loading webcam 1')
+end
+
+if ~isempty(regexp(h.m.outputs,'[2]'))
+    WFL = dir(fullfile(h.m.ccddir, '**', ['*' h.m.run '_stim' h.m.stim '_cam2.avi']));
+    disp('Loading Webcam 2...')
+    if isempty(WFL)
+        data.webcam2 = LoadWebcamJPG(fullfile(strrep(h.m.CCDdir,'CCD','stimCCD'),[h.m.run 'stim' mat2str(h.m.stim) '_webcam']));
+    else
+        [data.webcam2,h.m] = LoadWebcamAVI(fullfile(WFL.folder,WFL.name),h.m);
+    end
+    disp('Done loading Webcam 2')
+end
+
+if ~isempty(regexp(h.m.outputs,'[R]'))
+    [data.rotary,h.m] = LoadRotary(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim' mat2str(h.m.stim) '_rotary.txt']),h.m);
+    disp('Done loading rotary')
 end
 
 if ~isempty(regexp(h.m.outputs,'[odn]'))
@@ -511,24 +483,23 @@ if ~isempty(regexp(h.m.outputs,'[n]'))
         disp('Converting jRGECO...')
         h.m.bkg = 90; % PLACEHOLDER
         data.jrgeco = (data.lime-h.m.bkg)./((abs(data.red-h.m.bkg).^h.m.Dr).*(abs(data.green).^h.m.Dg));
-        if ~isfield(h.m,'bgGG')
-            h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
-        end
+        h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
         data.jrgeco = data.jrgeco./repmat(h.m.bgGG,[1 1 size(data.jrgeco,3)])-1;
         h.m.conv_vars = [h.m.conv_vars 'jrgeco'];
     end
 end
 
-opts = 'rgblodnn';
-fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
-for i = 1:length(opts)
-    if isempty(regexp(h.m.outputs,opts(i)))
-        try
-            data = rmfield(data,fields{i});
-        catch
+if ~h.m.isgui
+    opts = 'rgblodnn';
+    fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
+    for i = 1:length(opts)
+        if isempty(regexp(h.m.outputs,opts(i)))
+            try
+                data = rmfield(data,fields{i});
+            catch
+            end
         end
     end
 end
-
 m = h.m;
 disp('Done')

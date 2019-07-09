@@ -176,10 +176,10 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
     if h.m.bkgsub == 0
         databg = databg*0;
     end
-    if h.m.loadpct(1) == 0;
+    if h.m.loadpct(1) == 0
         h.m.loadpct(1) = 1/h.m.nFrames;
     end
-    h.m.framestoload = round(h.m.nFrames*h.m.loadpct(1):3:round(h.m.nFrames*h.m.loadpct(2)))-1;
+    h.m.framestoload = round(h.m.nFrames*h.m.loadpct(1):h.m.nLEDs:round(h.m.nFrames*h.m.loadpct(2)))-1;
     h.m.framestoload(end) = [];
     
     n = 0;
@@ -200,7 +200,7 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
                 h.status.String = sprintf('\n\n %i %% complete',round(i*100/h.m.nFrames)); drawnow
             else
                 try
-                    textprogressbar(round(j*100/length(filesToLoad)));
+                    textprogressbar(round(n*100/length(h.m.framestoload)));
                 catch
                     textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
                 end
@@ -208,7 +208,7 @@ if strcmp(h.m.camera,'ixon') && ~isempty(regexp(h.m.outputs,'[rgbodn]'))
         end
     end
     
-    textprogressbar(sprintf('  Done'))
+    textprogressbar(' Done')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% ZYLA LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -255,7 +255,6 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
     end
     h.m.spoolsLoaded = round(numel(namesOut)*h.m.loadpct(1):round(numel(namesOut)*h.m.loadpct(2)));
     filesToLoad = namesOut(h.m.spoolsLoaded);
-    j = 1;
     FID = fopen(fullfile(regexprep(h.m.fulldir,'[_][0-9]$',''),'0000000000spool.dat'));
     rawData = fread(FID, 'uint16=>uint16');
     fclose(FID);
@@ -340,7 +339,7 @@ elseif strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]'))
                 try
                     textprogressbar(round(j*100/length(filesToLoad)));
                 catch
-                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
+                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\r']))
                 end
             end
         end
