@@ -2,13 +2,13 @@
 % specified.
 
 function h = GetMetaData(h)
-%ccd_dir = dir(fullfile(h.m.CCDdir, h.m.run));
-%h.m.date = ccd_dir(1).date;
-%ccd_dir(~[ccd_dir.isdir]) = []; ccd_dir(cellfun('prodofsize', {ccd_dir.name}) < 3) = [];
-%ccd_dir = {ccd_dir.name};
-%h.m.stimlist = ccd_dir(~cellfun(@isempty,regexp(ccd_dir,['(' h.m.run '_stim(_)?)[1-9][0-9]*'],'Match')));
-%stimnums = regexp(h.m.stimlist,'\d*$','Match'); stimnums = str2double([stimnums{:}]);
-%[~,idx] = sort(stimnums); h.m.stimlist = h.m.stimlist(idx);
+ccd_dir = dir(fullfile(h.m.CCDdir, h.m.run));
+h.m.date = ccd_dir(1).date;
+ccd_dir(~[ccd_dir.isdir]) = []; ccd_dir(cellfun('prodofsize', {ccd_dir.name}) < 3) = [];
+ccd_dir = {ccd_dir.name};
+h.m.stimlist = ccd_dir(~cellfun(@isempty,regexp(ccd_dir,['(' h.m.run '_stim(_)?)[1-9][0-9]*'],'Match')));
+stimnums = regexp(h.m.stimlist,'\d*$','Match'); stimnums = str2double([stimnums{:}]);
+[~,idx] = sort(stimnums); h.m.stimlist = h.m.stimlist(idx);
 fid = fopen(fullfile(h.m.CCDdir, h.m.run, [h.m.run '_info.txt']),'r');
 txt = fread(fid,'uint8=>char');
 txt = lower(strcat(txt))';

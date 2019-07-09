@@ -87,34 +87,34 @@ disp('LoadData version 2.0')
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
 warning('off','all')
 
-h.m.fulldir = varargin{1};
-[h.m.mouse,h.m.run,h.m.stim,h.m.CCDdir] = WFOM_splitdir(h.m.fulldir);
+m.fulldir = varargin{1};
+[m.mouse,m.run,m.stim,m.CCDdir] = WFOM_splitdir(m.fulldir);
 
 % This folds in the fieldnames of the imported m struct into
-% the already existing h.m struct. Imported m struct overrides
+% the already existing m struct. Imported m struct overrides
 % duplicate fields.
 if numel(varargin) == 2
     f = fieldnames(varargin{2});
     for j = 1:length(f)
-        h.m.(f{j}) = varargin{2}.(f{j});
+        m.(f{j}) = varargin{2}.(f{j});
     end
 else
-    h.m = makem;
+    m = makem;
     disp('No m found. using default m...')
 end
 
-h = ReadInfoFile(h);
+m = ReadInfoFile(m);
 
-if h.m.noload
+if m.noload
     disp('No data loaded'); 
-    data = []; m = h.m;
+    data = []; m = m;
     return
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% ZYLA LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]','once'))
-    zylaInfoFilePath = fullfile(h.m.fulldir,'acquisitionmetadata.ini');
+if strcmp(m.camera,'zyla') && ~isempty(regexp(m.outputs,'[rgbodnl]','once'))
+    zylaInfoFilePath = fullfile(m.fulldir,'acquisitionmetadata.ini');
     FID = fopen(zylaInfoFilePath, 'r');
     zylaMetaData = fread(FID, '*char')';
     fclose(FID);
@@ -130,9 +130,9 @@ if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]','once'))
     numLatPix = strideWidth/2;
     numFramesPerSpool = str2double(zylaMetaData(ImagesPerFile_start+ length('ImagesPerFile = ')...
         :end));
-    numColumns = numDepths + h.m.offsetfactor;
+    numColumns = numDepths + m.offsetfactor;
     numRows = numLatPix;    
-    for i = 1:length(dir(fullfile(h.m.fulldir,'*.dat')))-1
+    for i = 1:length(dir(fullfile(m.fulldir,'*.dat')))-1
         temp = i;
         for j = 1:10
             a(i,j) = mod(temp, 10^j)/(10^(j-1));
@@ -144,12 +144,12 @@ if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]','once'))
         tempName = [tempName 'spool.dat'];
         namesOut{i} = tempName;
     end
-    if h.m.loadpct(1) == 0
-        h.m.loadpct(1) = 1/numel(namesOut);
+    if m.loadpct(1) == 0
+        m.loadpct(1) = 1/numel(namesOut);
     end
-    h.m.spoolsLoaded = round(numel(namesOut)*h.m.loadpct(1):round(numel(namesOut)*h.m.loadpct(2)));
-    filesToLoad = namesOut(h.m.spoolsLoaded);
-    FID = fopen(fullfile(regexprep(h.m.fulldir,'[_][0-9]$',''),'0000000000spool.dat'));
+    m.spoolsLoaded = round(numel(namesOut)*m.loadpct(1):round(numel(namesOut)*m.loadpct(2)));
+    filesToLoad = namesOut(m.spoolsLoaded);
+    FID = fopen(fullfile(regexprep(m.fulldir,'[_][0-9]$',''),'0000000000spool.dat'));
     rawData = fread(FID, 'uint16=>uint16');
     fclose(FID);
     numFramesInThisSpool = floor(length(rawData)/(numRows*numColumns));
@@ -161,44 +161,44 @@ if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]','once'))
         return
     end
     % This switches height and width if nrot is odd
-    if mod(h.m.nrot,2) == 1
-        height = h.m.height;
-        h.m.height = h.m.width;
-        h.m.width = height;
+    if mod(m.nrot,2) == 1
+        height = m.height;
+        m.height = m.width;
+        m.width = height;
     end
-    for i = 1:h.m.nLEDs
+    for i = 1:m.nLEDs
         tmp = rawData(:,:,i);
-        tmp = tmp(1:h.m.height,1:h.m.width,:);
-        if h.m.bkgsub
-            data.bkg.([h.m.LEDs{i}]) = tmp;
+        tmp = tmp(1:m.height,1:m.width,:);
+        if m.bkgsub
+            data.bkg.([m.LEDs{i}]) = tmp;
         else
-            data.bkg.([h.m.LEDs{i}]) = tmp*0;
+            data.bkg.([m.LEDs{i}]) = tmp*0;
         end
     end
-    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\n']))
-    for i = 1:h.m.nLEDs  % preallocate
-        data.(h.m.LEDs{i}) = (zeros(h.m.height/h.m.dsf,h.m.width/h.m.dsf,ceil(numFramesPerSpool.*length(filesToLoad)/h.m.nLEDs)));
+    textprogressbar(sprintf(['Loading ' m.mouse ' ' m.run ' stim ' mat2str(m.stim) '\n']))
+    for i = 1:m.nLEDs  % preallocate
+        data.(m.LEDs{i}) = (zeros(m.height/m.dsf,m.width/m.dsf,ceil(numFramesPerSpool.*length(filesToLoad)/m.nLEDs)));
     end
     
-    for k = 1:h.m.nLEDs
+    for k = 1:m.nLEDs
         start = k;
-        indexx.(h.m.LEDs{k}){1} = start:h.m.nLEDs:numFramesPerSpool;
-        dsindex.(h.m.LEDs{k}){1} = 1:size(indexx.(h.m.LEDs{k}){1},2);
-        indnum.(h.m.LEDs{k}){1} = length(dsindex.(h.m.LEDs{k}));
+        indexx.(m.LEDs{k}){1} = start:m.nLEDs:numFramesPerSpool;
+        dsindex.(m.LEDs{k}){1} = 1:size(indexx.(m.LEDs{k}){1},2);
+        indnum.(m.LEDs{k}){1} = length(dsindex.(m.LEDs{k}));
     end
     
     for i = 2:length(filesToLoad)
-        for k = 1:h.m.nLEDs
-            last = max(indexx.(h.m.LEDs{k}){i-1});
+        for k = 1:m.nLEDs
+            last = max(indexx.(m.LEDs{k}){i-1});
             skip = numFramesPerSpool-last;
-            indexx.(h.m.LEDs{k}){i} = (h.m.nLEDs-skip-1)+[1:h.m.nLEDs:(numFramesPerSpool-(h.m.nLEDs-skip-1))]; % location in each batch of LEDs
-            dsindex.(h.m.LEDs{k}){i} = max(dsindex.(h.m.LEDs{k}){i-1})+[1:size(indexx.(h.m.LEDs{k}){i},2)];
-            indnum.(h.m.LEDs{k}){i} = length(dsindex.(h.m.LEDs{k}){i});
+            indexx.(m.LEDs{k}){i} = (m.nLEDs-skip-1)+[1:m.nLEDs:(numFramesPerSpool-(m.nLEDs-skip-1))]; % location in each batch of LEDs
+            dsindex.(m.LEDs{k}){i} = max(dsindex.(m.LEDs{k}){i-1})+[1:size(indexx.(m.LEDs{k}){i},2)];
+            indnum.(m.LEDs{k}){i} = length(dsindex.(m.LEDs{k}){i});
         end
     end
     
     for j = 1:length(filesToLoad)
-        FID = fopen(fullfile(h.m.fulldir,filesToLoad{j}));
+        FID = fopen(fullfile(m.fulldir,filesToLoad{j}));
         rawData = fread(FID, 'uint16=>uint16');
         fclose(FID);
         numFramesInThisSpool = floor(length(rawData)/(numRows*numColumns));
@@ -216,75 +216,75 @@ if strcmp(h.m.camera,'zyla') && ~isempty(regexp(h.m.outputs,'[rgbodnl]','once'))
             rawData=(reshape(rawData(1:numPixelsToReshape),[numRows,numColumns,numFramesPerSpool]));
         end
         % Crop rawdata to original resolution
-        rawData = rawData(1:h.m.height,1:h.m.width,:);
+        rawData = rawData(1:m.height,1:m.width,:);
         
-        for k = 1:h.m.nLEDs
-            if h.m.dsf > 1
-                data.(h.m.LEDs{k})(:,:,dsindex.(h.m.LEDs{k}){j}) = uint16(squeeze(mean(mean(reshape(rawData(1:h.m.height,1:h.m.width,indexx.(h.m.LEDs{k}){j}),[h.m.dsf,h.m.height/h.m.dsf,h.m.dsf,h.m.height/h.m.dsf,numel(indexx.(h.m.LEDs{k}){j})]),3),1))) - repmat(imresize(data.bkg.(h.m.LEDs{k}),1/h.m.dsf),[1 1 numel(indexx.(h.m.LEDs{k}){j})]);
+        for k = 1:m.nLEDs
+            if m.dsf > 1
+                data.(m.LEDs{k})(:,:,dsindex.(m.LEDs{k}){j}) = uint16(squeeze(mean(mean(reshape(rawData(1:m.height,1:m.width,indexx.(m.LEDs{k}){j}),[m.dsf,m.height/m.dsf,m.dsf,m.height/m.dsf,numel(indexx.(m.LEDs{k}){j})]),3),1))) - repmat(imresize(data.bkg.(m.LEDs{k}),1/m.dsf),[1 1 numel(indexx.(m.LEDs{k}){j})]);
             else
-                data.(h.m.LEDs{k})(:,:,dsindex.(h.m.LEDs{k}){j}) = rawData(1:h.m.height,1:h.m.width,indexx.(h.m.LEDs{k}){j})-repmat(data.bkg.(h.m.LEDs{k}),[1 1 numel(indexx.(h.m.LEDs{k}){j})]);
+                data.(m.LEDs{k})(:,:,dsindex.(m.LEDs{k}){j}) = rawData(1:m.height,1:m.width,indexx.(m.LEDs{k}){j})-repmat(data.bkg.(m.LEDs{k}),[1 1 numel(indexx.(m.LEDs{k}){j})]);
             end
         end
         
         if mod(j,10)
-            if h.m.isgui
-                h.status.String = sprintf('\n\n %i %% complete',round(j*100/length(filesToLoad))); drawnow
+            if m.isgui
+                status.String = sprintf('\n\n %i %% complete',round(j*100/length(filesToLoad))); drawnow
             else
                 try
                     textprogressbar(round(j*100/length(filesToLoad)));
                 catch
-                    textprogressbar(sprintf(['Loading ' h.m.mouse ' ' h.m.run ' stim ' mat2str(h.m.stim) '\r']))
+                    textprogressbar(sprintf(['Loading ' m.mouse ' ' m.run ' stim ' mat2str(m.stim) '\r']))
                 end
             end
         end
     end
     
     textprogressbar(sprintf('  Done'))
-elseif strcmp(h.m.camera,'ixon')
+elseif strcmp(m.camera,'ixon')
     disp('LoadData_v2 is not compatible with ixon files. Please use LoadData. Thanks :)')
     data = [];
-    m = h.m;
+    m = m;
     return
 else
     disp('Camera is unknown, no data loaded')
     data = [];
-    m = h.m;
+    m = m;
     return
 end
 
 try
-    ss = size(data.(h.m.LEDs{1}));
+    ss = size(data.(m.LEDs{1}));
 catch
 end
 
 % Rotate
-if isfield(h.m,'nrot') && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
-    for i = 1:h.m.nLEDs
-        data.(h.m.LEDs{i}) = rot90(data.(h.m.LEDs{i}),h.m.nrot);
+if isfield(m,'nrot') && ~isempty(regexp(m.outputs,'[rgblodn]'))
+    for i = 1:m.nLEDs
+        data.(m.LEDs{i}) = rot90(data.(m.LEDs{i}),m.nrot);
     end
     disp('Rotated data')
 end
 
 % Autocrop
-if h.m.autocrop
+if m.autocrop
     disp('autocropping...')
-    tmp = reshape(data.(h.m.LEDs{1}),[h.m.height*h.m.width/(h.m.dsf^2), size(data.(h.m.LEDs{1}),3)]);
+    tmp = reshape(data.(m.LEDs{1}),[m.height*m.width/(m.dsf^2), size(data.(m.LEDs{1}),3)]);
     for i = 1:size(tmp,1)
         [~,croptst(i)] = runstest(tmp(i,:));
     end
     croptst(croptst < .00001) = 0;
     croptst(croptst > .00001) = 1;
-    croptst = ~logical(reshape(croptst,[h.m.height/h.m.dsf h.m.width/h.m.dsf]));
-    h.m.BW = imerode(croptst,ones(4));
+    croptst = ~logical(reshape(croptst,[m.height/m.dsf m.width/m.dsf]));
+    m.BW = imerode(croptst,ones(4));
 end
 
 % Apply mask
-if isfield(h.m,'BW')  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
-    for i = 1:h.m.nLEDs
-        data.(h.m.LEDs{i}) = data.(h.m.LEDs{i}).*repmat(imresize(h.m.BW,ss(1:2)),[1 1 size(data.(h.m.LEDs{i}),3)]);
+if isfield(m,'BW')  && ~isempty(regexp(m.outputs,'[rgblodn]'))
+    for i = 1:m.nLEDs
+        data.(m.LEDs{i}) = data.(m.LEDs{i}).*repmat(imresize(m.BW,ss(1:2)),[1 1 size(data.(m.LEDs{i}),3)]);
     end
     disp('Cropped data')
-elseif ~isempty(regexp(h.m.outputs,'[rgblodn]'))
+elseif ~isempty(regexp(m.outputs,'[rgblodn]'))
     qans = questdlg('No crop mask found. Would you like to create one?','Yes','No');
     if strcmp(qans,'Yes')
         tmp = figure;
@@ -294,78 +294,78 @@ elseif ~isempty(regexp(h.m.outputs,'[rgblodn]'))
             imagesc(std(data.lime,[],3))
         end
         axis image
-        h.m.BW = roipoly;
+        m.BW = roipoly;
         close(tmp)
-        for i = 1:h.m.nLEDs
-            data.(h.m.LEDs{i}) = data.(h.m.LEDs{i}).*repmat(imresize(h.m.BW,ss(1:2)),[1 1 size(data.(h.m.LEDs{i}),3)]);
+        for i = 1:m.nLEDs
+            data.(m.LEDs{i}) = data.(m.LEDs{i}).*repmat(imresize(m.BW,ss(1:2)),[1 1 size(data.(m.LEDs{i}),3)]);
         end
     end
 end
 
 % Flicker correction
-if ~isempty(h.m.corr_flicker)
-    for i = h.m.corr_flicker
-        disp(['Flicker ' h.m.LEDs{i}])
-        flkcor = squeeze(nanmean(nanmean(data.(h.m.LEDs{i}),2),1));
-        if strcmp(h.m.LEDs{i},'red') || strcmp(h.m.LEDs{i},'green')
-            corfact(1,1,:) = nanmean(flkcor)+flkcor-smooth(flkcor,floor(h.m.framerate/6)*2+1);
+if ~isempty(m.corr_flicker)
+    for i = m.corr_flicker
+        disp(['Flicker ' m.LEDs{i}])
+        flkcor = squeeze(nanmean(nanmean(data.(m.LEDs{i}),2),1));
+        if strcmp(m.LEDs{i},'red') || strcmp(m.LEDs{i},'green')
+            corfact(1,1,:) = nanmean(flkcor)+flkcor-smooth(flkcor,floor(m.framerate/6)*2+1);
         else
-            corfact(1,1,:) = nanmean(flkcor)+flkcor-smooth(flkcor,floor(h.m.framerate/12)*2+1);
+            corfact(1,1,:) = nanmean(flkcor)+flkcor-smooth(flkcor,floor(m.framerate/12)*2+1);
         end
-        data.(h.m.LEDs{i}) = nanmean(corfact)*data.(h.m.LEDs{i})./repmat(corfact,[ss(1),ss(2),1]);
+        data.(m.LEDs{i}) = nanmean(corfact)*data.(m.LEDs{i})./repmat(corfact,[ss(1),ss(2),1]);
     end
 end
 
 % Smooth (in time)
-if ~isempty(h.m.smooth)
-    for i = h.m.smooth
-        disp(['Smoothing ' h.m.LEDs{i}])
-        data.(h.m.LEDs{i}) = smooth3(data.(h.m.LEDs{i}),'box',[1 1 3]);
+if ~isempty(m.smooth)
+    for i = m.smooth
+        disp(['Smoothing ' m.LEDs{i}])
+        data.(m.LEDs{i}) = smooth3(data.(m.LEDs{i}),'box',[1 1 3]);
     end
 end
 
 % PCA Denoising
-if h.m.PCAcomps > 0  && ~isempty(regexp(h.m.outputs,'[rgblodn]'))
-    keep = 1:h.m.PCAcomps;
-    for i = 1:h.m.nLEDs
-        disp(['PCA ' h.m.LEDs{i}])
-        [COEFF,SCORE,~,~,h.m.EXPLAIN.(h.m.LEDs{i})] = pca(reshape(data.(h.m.LEDs{i}),[ss(1)*ss(2),ss(3)]),'Centered','off');
-        data.(h.m.LEDs{i}) = reshape(SCORE(:,keep)*COEFF(:,keep)',ss);
+if m.PCAcomps > 0  && ~isempty(regexp(m.outputs,'[rgblodn]'))
+    keep = 1:m.PCAcomps;
+    for i = 1:m.nLEDs
+        disp(['PCA ' m.LEDs{i}])
+        [COEFF,SCORE,~,~,m.EXPLAIN.(m.LEDs{i})] = pca(reshape(data.(m.LEDs{i}),[ss(1)*ss(2),ss(3)]),'Centered','off');
+        data.(m.LEDs{i}) = reshape(SCORE(:,keep)*COEFF(:,keep)',ss);
     end
 end
 clear COEFF SCORE
 
-% if ~isempty(regexp(h.m.outputs,'[R]'))
-%     [data.rotary,h.m] = LoadRotary(fullfile(h.m.CCDdir,h.m.run,[h.m.run '_stim' mat2str(h.m.stim) '_rotary.txt']),h.m);
+% if ~isempty(regexp(m.outputs,'[R]'))
+%     [data.rotary,m] = LoadRotary(fullfile(m.CCDdir,m.run,[m.run '_stim' mat2str(m.stim) '_rotary.txt']),m);
 %     disp('Done loading rotary')
 % end
 
-if ~isempty(regexp(h.m.outputs,'[odn]'))
+if ~isempty(regexp(m.outputs,'[odn]'))
     disp('Converting Hemodynamics...')
-    [data.chbo,data.chbr,~] = convert_mariel_MIAO(data.green,data.red,'g','r',h.m.baseline,534);
-    h.m.conv_vars = {'chbo','chbr'};
+    [data.chbo,data.chbr,~] = convert_mariel_MIAO(data.green,data.red,'g','r',m.baseline,m.greenfilter);
+    m.conv_vars = {'chbo','chbr'};
 end
 
-if ~isempty(regexp(h.m.outputs,'[n]'))
+if ~isempty(regexp(m.outputs,'[n]'))
     if isfield(data,'blue')
-        disp('Converting GCaMP...')
-        data.gcamp = GcampMcCorrection_MIAO(data.blue,data.chbr,data.chbo,h.m.baseline,h.m.dpf(1),h.m.dpf(2));
-        h.m.conv_vars = [h.m.conv_vars 'gcamp'];
+        disp('Correcting GCaMP...')
+        data.gcamp = GcampMcCorrection_MIAO(data.blue,data.chbr,data.chbo,m.baseline,m.dpf(1),m.dpf(2));
+        m.conv_vars = [m.conv_vars 'gcamp'];
     elseif isfield(data,'lime')
-        disp('Converting jRGECO...')
-        h.m.bkg = 0; % PLACEHOLDER
-        data.jrgeco = (data.lime-h.m.bkg)./((abs(data.red-h.m.bkg).^h.m.Dr).*(abs(data.green).^h.m.Dg));
-        h.m.bgGG = mean(data.jrgeco(:,:,h.m.baseline),3);
-        data.jrgeco = data.jrgeco./repmat(h.m.bgGG,[1 1 size(data.jrgeco,3)])-1;
-        h.m.conv_vars = [h.m.conv_vars 'jrgeco'];
+        disp('Correcting jRGECO...')
+        m.bkg = 0; % PLACEHOLDER
+        data.jrgeco = (data.lime-m.bkg)./((abs(data.red-m.bkg).^m.Dr).*(abs(data.green).^m.Dg));
+        m.bgGG = mean(data.jrgeco(:,:,m.baseline),3);
+        data.jrgeco = data.jrgeco./repmat(m.bgGG,[1 1 size(data.jrgeco,3)])-1;
+        m.conv_vars = [m.conv_vars 'jrgeco'];
     end
 end
 
-if ~h.m.isgui
+if ~m.isgui
     opts = 'rgblodnn';
     fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
     for i = 1:length(opts)
-        if isempty(regexp(h.m.outputs,opts(i)))
+        if isempty(regexp(m.outputs,opts(i)))
             try
                 data = rmfield(data,fields{i});
             catch
@@ -373,5 +373,5 @@ if ~h.m.isgui
         end
     end
 end
-m = h.m;
+m = m;
 disp('Done')
