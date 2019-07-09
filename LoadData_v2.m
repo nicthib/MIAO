@@ -1,4 +1,5 @@
-% [m,data] = LoadData(Path,m) loads a specified WFOM dataset.
+% [m,data] = LoadData(Path,m) loads WFOM datasets and obtains 
+% metadata from the specified run.
 %
 % Version 2.0
 %
@@ -6,32 +7,10 @@
 %
 % Path - full path to stim run files (REQUIRED)
 %
-% m.outputs - string with these characters: rgblodn.
-% Red, Green, Blue, Lime, hbO, hbR, Neural.
-% Order doesn't matter. Default is 'odn'.
+% m - struct containing load options (Optional). Use m = makem to create a
+% default m struct, and edit your options (fields of m are explained in
+% detail in the help file for makem())
 %
-% m.dsf - downsample factor (Integer). 
-% Default is 1.
-%
-% m.dpf - array of two pathlengths for GCaMP correction (or for jRGECO
-% correction)
-% Default is [.5 .6]. 
-%
-% m.baseline - passed as a vector containing what frames
-% you want to use as a baseline for correction. 
-% Default is [30:100].
-%
-% m.loadpct - [start end]. This loads a proportion of the frames, where [0
-% 1] loads the whole run. Default is [0 1].
-%
-% m.PCAcomps - 0 if you don't want to perform PCA, and n if you want it
-% reconstructed with components 1:n.
-%
-% Other optional arguments (placed into m struct): 
-% m.noload = 1          : load the metadata only
-% m.corr_flicker = 1    : perform flicker correction
-% m.bkgsub (zyla) = 1   : performs background subtraction using first 3
-%                         frames from blank recording
 % Outputs:
 % m: metadata struct
 % data: data struct that includes WFOM image matrices.
@@ -77,6 +56,7 @@ function [m,data] = LoadData_v2(varargin)
 %           will be reimplemented in a simpler way,and webcam will be a
 %           seperate function (BatchConvertFLIR.m?).
 %         - Improved mouse and run detection via strsplit()
+%         - GetMetaData() replaced with ReadInfoFile()
 
 % TO DO
 %         - add 'spool index' loading for random stim datasets
@@ -100,14 +80,14 @@ if numel(varargin) == 2
     end
 else
     m = makem;
-    disp('No m found. using default m...')
+    disp('No m found. using default options...')
 end
 
 m = ReadInfoFile(m);
 
 if m.noload
     disp('No data loaded'); 
-    data = []; m = m;
+    data = [];
     return
 end
 
@@ -217,7 +197,6 @@ if strcmp(m.camera,'zyla') && ~isempty(regexp(m.outputs,'[rgbodnl]','once'))
         end
         % Crop rawdata to original resolution
         rawData = rawData(1:m.height,1:m.width,:);
-        
         for k = 1:m.nLEDs
             if m.dsf > 1
                 data.(m.LEDs{k})(:,:,dsindex.(m.LEDs{k}){j}) = uint16(squeeze(mean(mean(reshape(rawData(1:m.height,1:m.width,indexx.(m.LEDs{k}){j}),[m.dsf,m.height/m.dsf,m.dsf,m.height/m.dsf,numel(indexx.(m.LEDs{k}){j})]),3),1))) - repmat(imresize(data.bkg.(m.LEDs{k}),1/m.dsf),[1 1 numel(indexx.(m.LEDs{k}){j})]);
@@ -227,14 +206,10 @@ if strcmp(m.camera,'zyla') && ~isempty(regexp(m.outputs,'[rgbodnl]','once'))
         end
         
         if mod(j,10)
-            if m.isgui
-                status.String = sprintf('\n\n %i %% complete',round(j*100/length(filesToLoad))); drawnow
-            else
-                try
-                    textprogressbar(round(j*100/length(filesToLoad)));
-                catch
-                    textprogressbar(sprintf(['Loading ' m.mouse ' ' m.run ' stim ' mat2str(m.stim) '\r']))
-                end
+            try
+                textprogressbar(round(j*100/length(filesToLoad)));
+            catch
+                textprogressbar(sprintf(['Loading ' m.mouse ' ' m.run ' stim ' mat2str(m.stim) '\r']))
             end
         end
     end
@@ -252,13 +227,15 @@ else
     return
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PREPROCESSING %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 try
     ss = size(data.(m.LEDs{1}));
 catch
 end
 
 % Rotate
-if isfield(m,'nrot') && ~isempty(regexp(m.outputs,'[rgblodn]'))
+if isfield(m,'nrot') && ~isempty(regexp(m.outputs,'[rgblodn]','once'))
     for i = 1:m.nLEDs
         data.(m.LEDs{i}) = rot90(data.(m.LEDs{i}),m.nrot);
     end
@@ -279,12 +256,12 @@ if m.autocrop
 end
 
 % Apply mask
-if isfield(m,'BW')  && ~isempty(regexp(m.outputs,'[rgblodn]'))
+if isfield(m,'BW')  && ~isempty(regexp(m.outputs,'[rgblodn]','once'))
     for i = 1:m.nLEDs
         data.(m.LEDs{i}) = data.(m.LEDs{i}).*repmat(imresize(m.BW,ss(1:2)),[1 1 size(data.(m.LEDs{i}),3)]);
     end
     disp('Cropped data')
-elseif ~isempty(regexp(m.outputs,'[rgblodn]'))
+elseif ~isempty(regexp(m.outputs,'[rgblodn]','once'))
     qans = questdlg('No crop mask found. Would you like to create one?','Yes','No');
     if strcmp(qans,'Yes')
         tmp = figure;
@@ -340,13 +317,13 @@ clear COEFF SCORE
 %     disp('Done loading rotary')
 % end
 
-if ~isempty(regexp(m.outputs,'[odn]'))
+if ~isempty(regexp(m.outputs,'[odn]','once'))
     disp('Converting Hemodynamics...')
     [data.chbo,data.chbr,~] = convert_mariel_MIAO(data.green,data.red,'g','r',m.baseline,m.greenfilter);
     m.conv_vars = {'chbo','chbr'};
 end
 
-if ~isempty(regexp(m.outputs,'[n]'))
+if ~isempty(regexp(m.outputs,'[n]','once'))
     if isfield(data,'blue')
         disp('Correcting GCaMP...')
         data.gcamp = GcampMcCorrection_MIAO(data.blue,data.chbr,data.chbo,m.baseline,m.dpf(1),m.dpf(2));
@@ -361,17 +338,15 @@ if ~isempty(regexp(m.outputs,'[n]'))
     end
 end
 
-if ~m.isgui
-    opts = 'rgblodnn';
-    fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
-    for i = 1:length(opts)
-        if isempty(regexp(m.outputs,opts(i)))
-            try
-                data = rmfield(data,fields{i});
-            catch
-            end
+opts = 'rgblodnn';
+fields = {'red','green','blue','lime','chbo','chbr','gcamp','jrgeco'};
+for i = 1:length(opts)
+    if isempty(regexp(m.outputs,opts(i),'once'))
+        try
+            data = rmfield(data,fields{i});
+        catch
         end
     end
 end
-m = m;
+
 disp('Done')

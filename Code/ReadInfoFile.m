@@ -1,6 +1,8 @@
 % h = ReadInfoFile(h) gets all relevant metadata for the mouse run
 % specified from info.txt
 
+% TO DO: Make YAML files instead of txt files!
+
 function m = ReadInfoFile(m)
 fid = fopen(fullfile(m.CCDdir, m.run, [m.run '_info.txt']),'r');
 txt = fread(fid,'uint8=>char');
