@@ -1,4 +1,4 @@
-# MIAO - WFOM analysis pipeline for the Hillman lab
+# MIAO (Multispectral Imaging Analysis Optimizer)
 
 ## Getting started with `LoadData`, the core function of MIAO
 There are two main outputs of `LoadData`: `data` and `m`. `data` is self-explanatory: it contains your data! `m` is a structure that contains all the metadata for the run you are analyzing. Using LoadData is really straightforward once you understand how to set up your workspace.
