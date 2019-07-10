@@ -57,11 +57,14 @@ function [m,data] = LoadData_v2(varargin)
 %           seperate function (BatchConvertFLIR.m?).
 %         - Improved mouse and run detection via strsplit()
 %         - GetMetaData() replaced with ReadInfoFile()
+%         - Help has been moved to makem.m
+%         - Added auxillary and DAQ loading
 
 % TO DO
 %         - add 'spool index' loading for random stim datasets
 %         - add blank frame deletion from zyla data
 %         - add stim averaging functionality for random stim
+%         - more comments
 
 disp('LoadData version 2.0')
 addpath(genpath('/local_mount/space/juno/1/Software/MIAO/'))
@@ -84,6 +87,12 @@ else
 end
 
 m = ReadInfoFile(m);
+try
+    m = ReadAuxillary(m);
+    disp('aux and DAQ data loaded')
+catch
+    disp('Unable to load aux and DAQ data')
+end
 
 if m.noload
     disp('No data loaded'); 
@@ -265,11 +274,7 @@ elseif ~isempty(regexp(m.outputs,'[rgblodn]','once'))
     qans = questdlg('No crop mask found. Would you like to create one?','Yes','No');
     if strcmp(qans,'Yes')
         tmp = figure;
-        if isfield(data,'blue')
-            imagesc(std(data.blue,[],3))
-        else
-            imagesc(std(data.lime,[],3))
-        end
+        imagesc(std(data.(m.LEDs{1}),[],3))
         axis image
         m.BW = roipoly;
         close(tmp)
