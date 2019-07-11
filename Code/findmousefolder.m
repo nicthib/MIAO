@@ -1,25 +1,17 @@
 function outpath = findmousefolder(varargin)
-
-outpath = [];
-roots   =   {'S:/'; 'D:/'; 'F:/'; '/local_mount/space'; ''
-            };         
-servers =   {'enterprise/1';        'enterprise/2';
+outpath =   [];
+roots   =   {'/local_mount/space'; 'S:/'; 'D:/'; 'F:/'; '' };         
+servers =   {'enterprise/1';         'enterprise/2';
              'lfoivault/lfoivault1'; 'lfoivault/lfoivault2';
              'revault/revault1';     'revault/revault2';
-             'voyager/1';             'dingus/1'; 
-             ''
-            };
-exts =      {'_stroke';              '_glioma'; 
-             ''
-            };
-mtypes =    {'cmdata';               'mdata'  ; 
-             ''
-            };
-for h = 1:numel(roots)
-    for i = 1:numel(servers)
-        for j = 1:numel(exts)
-            for k = 1:numel(mtypes)
-                tmppath = fullfile(roots{h},servers{i},mtypes{k},[varargin{1} exts{j}]);
+             'voyager/1';            'dingus/1'; '' };
+mtypes  =   {'cmdata'; 'mdata'; ''};
+exts    =   {'_stroke'; '_glioma'; ''};
+for a = 1:numel(roots)
+    for b = 1:numel(servers)
+        for c = 1:numel(mtypes)
+            for d = 1:numel(exts)
+                tmppath = fullfile(roots{a},servers{b},mtypes{c},[varargin{1} exts{d}]);
                 if(exist(tmppath))
                     outpath = tmppath;
                     if numel(varargin) == 3
@@ -41,7 +33,6 @@ end
 
 if isempty(outpath)
     disp('Sorry, couldn''t find that directory!')
-    return
 else
     disp(['Found Directory: ' outpath])
 end

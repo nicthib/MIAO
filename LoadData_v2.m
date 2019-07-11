@@ -227,12 +227,10 @@ if strcmp(m.camera,'zyla') && ~isempty(regexp(m.outputs,'[rgbodnl]','once'))
 elseif strcmp(m.camera,'ixon')
     disp('LoadData_v2 is not compatible with ixon files. Please use LoadData. Thanks :)')
     data = [];
-    m = m;
     return
 else
     disp('Camera is unknown, no data loaded')
     data = [];
-    m = m;
     return
 end
 
@@ -317,11 +315,6 @@ if m.PCAcomps > 0  && ~isempty(regexp(m.outputs,'[rgblodn]'))
 end
 clear COEFF SCORE
 
-% if ~isempty(regexp(m.outputs,'[R]'))
-%     [data.rotary,m] = LoadRotary(fullfile(m.CCDdir,m.run,[m.run '_stim' mat2str(m.stim) '_rotary.txt']),m);
-%     disp('Done loading rotary')
-% end
-
 if ~isempty(regexp(m.outputs,'[odn]','once'))
     disp('Converting Hemodynamics...')
     [data.chbo,data.chbr,~] = convert_mariel_MIAO(data.green,data.red,'g','r',m.baseline,m.greenfilter);
@@ -333,10 +326,14 @@ if ~isempty(regexp(m.outputs,'[n]','once'))
         disp('Correcting GCaMP...')
         data.gcamp = GcampMcCorrection_MIAO(data.blue,data.chbr,data.chbo,m.baseline,m.dpf(1),m.dpf(2));
         m.conv_vars = [m.conv_vars 'gcamp'];
-    elseif isfield(data,'lime')
+    end
+    
+    if isfield(data,'lime')
         disp('Correcting jRGECO...')
-        m.bkg = 0; % PLACEHOLDER
-        data.jrgeco = (data.lime-m.bkg)./((abs(data.red-m.bkg).^m.Dr).*(abs(data.green).^m.Dg));
+        
+        data.jrgeco = (data.lime-repmat(double(imresize(data.bkg.lime,1/m.dsf)),[1 1 ss(3)]))./   ...
+            ((data.red-repmat(double(imresize(data.bkg.red,1/m.dsf)),[1 1 ss(3)])).^m.Dr).*       ...
+            ((data.green-repmat(double(imresize(data.bkg.green,1/m.dsf)),[1 1 ss(3)])).^m.Dg);
         m.bgGG = mean(data.jrgeco(:,:,m.baseline),3);
         data.jrgeco = data.jrgeco./repmat(m.bgGG,[1 1 size(data.jrgeco,3)])-1;
         m.conv_vars = [m.conv_vars 'jrgeco'];
