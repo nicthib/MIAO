@@ -5,7 +5,6 @@ load(fullfile(rot_dir.folder,rot_dir.name))
 load(fullfile(DAQ_dir.folder,DAQ_dir.name))
 m.aux = aux';
 m.DAQ = DAQdata;
-
 % Determine stim times
 w_stim = m.DAQ(1,:);
 if sum(find(w_stim > 2.5)) == 0
