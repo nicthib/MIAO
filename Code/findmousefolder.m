@@ -1,17 +1,17 @@
 function outpath = findmousefolder(varargin)
 outpath =   [];
-roots   =   {'/local_mount/space'; 'S:/'; 'D:/'; 'F:/'; '' };         
+roots   =   {'/local_mount/space'; 'S:/'; 'D:/'; 'F:/' };         
 servers =   {'enterprise/1';         'enterprise/2';
              'lfoivault/lfoivault1'; 'lfoivault/lfoivault2';
              'revault/revault1';     'revault/revault2';
              'voyager/1';            'dingus/1'; '' };
 mtypes  =   {'cmdata'; 'mdata'; ''};
-exts    =   {'_stroke'; '_glioma'; ''};
+exts    =   {'stroke'; 'glioma'; ''};
 for a = 1:numel(roots)
     for b = 1:numel(servers)
         for c = 1:numel(mtypes)
             for d = 1:numel(exts)
-                tmppath = fullfile(roots{a},servers{b},mtypes{c},[varargin{1} exts{d}]);
+                tmppath = fullfile(roots{a},servers{b},mtypes{c}, exts{d},varargin{1});
                 if(exist(tmppath))
                     outpath = tmppath;
                     if numel(varargin) == 3

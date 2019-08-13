@@ -13,4 +13,6 @@ else
     m.stimon = 1;
     [~,LOCS] = findpeaks(diff(w_stim),'minpeakdistance',2e4,'threshold',2.5);
     m.stimtimes = LOCS/1e4;
+    m.DAQfs = 1e4;
+    m.stimframes = floor(m.stimtimes*m.framerate/m.nLEDs);
 end

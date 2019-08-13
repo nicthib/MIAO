@@ -59,6 +59,7 @@ function [m,data] = LoadData_v2(varargin)
 %         - GetMetaData() replaced with ReadInfoFile()
 %         - Help has been moved to makem.m
 %         - Added auxillary and DAQ loading
+%         - Added graphical baseline pick based on rotary/stim
 
 % TO DO
 %         - add 'spool index' loading for random stim datasets
@@ -87,6 +88,7 @@ else
 end
 
 m = ReadInfoFile(m);
+
 try
     m = ReadAuxillary(m);
     disp('aux and DAQ data loaded')
@@ -94,6 +96,17 @@ catch
     disp('Unable to load aux and DAQ data')
 end
 
+if strcmp(m.baseline,'user_input')
+    tmp = figure;
+    subplot(211)
+    plot(m.aux(2,:))
+    subplot(212)
+    plot(m.DAQ(1,:))
+    [x,~] = ginput(2); x = round(sort(x));
+    m.baseline = round((x(1):x(2))/m.nLEDs);
+    close(tmp)
+end
+    
 if m.noload
     disp('No data loaded'); 
     data = [];
@@ -102,7 +115,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% ZYLA LOAD CODE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if strcmp(m.camera,'zyla') && ~isempty(regexp(m.outputs,'[rgbodnl]','once'))
+if strcmp(m.camera,'zyla') && ~isempty(regexp(m.outputs,'[rgbodnlP]','once'))
     zylaInfoFilePath = fullfile(m.fulldir,'acquisitionmetadata.ini');
     FID = fopen(zylaInfoFilePath, 'r');
     zylaMetaData = fread(FID, '*char')';
@@ -242,7 +255,7 @@ catch
 end
 
 % Rotate
-if isfield(m,'nrot') && ~isempty(regexp(m.outputs,'[rgblodn]','once'))
+if isfield(m,'nrot') && ~isempty(regexp(m.outputs,'[rgblodnP]','once'))
     for i = 1:m.nLEDs
         data.(m.LEDs{i}) = rot90(data.(m.LEDs{i}),m.nrot);
     end
@@ -263,18 +276,19 @@ if m.autocrop
 end
 
 % Apply mask
-if isfield(m,'BW')  && ~isempty(regexp(m.outputs,'[rgblodn]','once'))
+if isfield(m,'BW')  && ~isempty(regexp(m.outputs,'[rgblodnP]','once'))
     for i = 1:m.nLEDs
         data.(m.LEDs{i}) = data.(m.LEDs{i}).*repmat(imresize(m.BW,ss(1:2)),[1 1 size(data.(m.LEDs{i}),3)]);
     end
     disp('Cropped data')
-elseif ~isempty(regexp(m.outputs,'[rgblodn]','once'))
+elseif ~isempty(regexp(m.outputs,'[rgblodnP]','once'))
     qans = questdlg('No crop mask found. Would you like to create one?','Yes','No');
     if strcmp(qans,'Yes')
         tmp = figure;
         imagesc(std(data.(m.LEDs{1}),[],3))
         axis image
-        m.BW = roipoly;
+        m.BW = double(roipoly);
+        m.BW(m.BW == 0) = NaN;
         close(tmp)
         for i = 1:m.nLEDs
             data.(m.LEDs{i}) = data.(m.LEDs{i}).*repmat(imresize(m.BW,ss(1:2)),[1 1 size(data.(m.LEDs{i}),3)]);
@@ -305,15 +319,21 @@ if ~isempty(m.smooth)
 end
 
 % PCA Denoising
-if m.PCAcomps > 0  && ~isempty(regexp(m.outputs,'[rgblodn]'))
-    keep = 1:m.PCAcomps;
+if m.PCAcomps > 0  && ~isempty(regexp(m.outputs,'[rgblodnP]'))
     for i = 1:m.nLEDs
         disp(['PCA ' m.LEDs{i}])
-        [COEFF,SCORE,~,~,m.EXPLAIN.(m.LEDs{i})] = pca(reshape(data.(m.LEDs{i}),[ss(1)*ss(2),ss(3)]),'Centered','off');
-        data.(m.LEDs{i}) = reshape(SCORE(:,keep)*COEFF(:,keep)',ss);
+        tmp = reshape(data.(m.LEDs{i}),[ss(1)*ss(2),ss(3)]);
+        m.nanidx = isfinite(tmp(:,1));% non nan indice
+        [data.C.(m.LEDs{i}),data.S.(m.LEDs{i}),data.expl.(m.LEDs{i})] = fsvd(tmp(m.nanidx,:),m.PCAcomps,2,1);
+        expl = cumsum(data.expl.(m.LEDs{i}));
+        [m.kneept, ~] = knee_pt(expl,1:numel(expl),1);
+        disp(['Knee point at ' mat2str(m.kneept)])
+        if ~isempty(regexp(m.outputs,'[rgblodn]'))
+            tmp(m.nanidx,:) = data.C.(m.LEDs{i})*data.S.(m.LEDs{i});
+            data.(m.LEDs{i}) = reshape(tmp,ss);
+        end
     end
 end
-clear COEFF SCORE
 
 if ~isempty(regexp(m.outputs,'[odn]','once'))
     disp('Converting Hemodynamics...')
@@ -321,6 +341,7 @@ if ~isempty(regexp(m.outputs,'[odn]','once'))
     m.conv_vars = {'chbo','chbr'};
 end
 
+% Conversion
 if ~isempty(regexp(m.outputs,'[n]','once'))
     if isfield(data,'blue')
         disp('Correcting GCaMP...')
@@ -334,8 +355,8 @@ if ~isempty(regexp(m.outputs,'[n]','once'))
         data.jrgeco = (data.lime-repmat(double(imresize(data.bkg.lime,1/m.dsf)),[1 1 ss(3)]))./   ...
             ((data.red-repmat(double(imresize(data.bkg.red,1/m.dsf)),[1 1 ss(3)])).^m.Dr).*       ...
             ((data.green-repmat(double(imresize(data.bkg.green,1/m.dsf)),[1 1 ss(3)])).^m.Dg);
-        m.bgGG = mean(data.jrgeco(:,:,m.baseline),3);
-        data.jrgeco = data.jrgeco./repmat(m.bgGG,[1 1 size(data.jrgeco,3)])-1;
+        m.bl = mean(data.jrgeco(:,:,m.baseline),3);
+        data.jrgeco = data.jrgeco./repmat(m.bl,[1 1 size(data.jrgeco,3)])-1;
         m.conv_vars = [m.conv_vars 'jrgeco'];
     end
 end
